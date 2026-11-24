@@ -331,7 +331,7 @@
         const hasErr = state.searchError.dest || state.searchError.dates;
 
         return `
-          <div class="start-shell ${isStep1Complete() ? 'has-trip' : ''}">
+          <div class="start-shell">
             <section class="start-hero" aria-labelledby="start-title">
               <div class="hero-copy">
                 <h1 class="start-title" id="start-title" aria-label="Собираемся в командировку"><span class="hero-morph" aria-hidden="true">Собираемся в командировку</span></h1>
@@ -378,7 +378,7 @@
               <div class="seg">
                 <button type="button" class="seg-btn ${state.openPopover === 'dates' ? 'open' : ''} ${state.searchError.dates ? 'invalid' : ''}" data-action="open-pop" data-pop="dates" aria-expanded="${state.openPopover === 'dates'}">
                   <span class="seg-label">Даты</span>
-                  <span class="seg-val ${!datesText ? 'placeholder' : ''}">${datesText ? esc(datesText) : 'Туда — обратно'}</span>
+                  <span class="seg-val ${!datesText ? 'placeholder' : ''}"${datesText ? ` title="${esc(datesText)}"` : ''}>${datesText ? esc(datesText) : 'Туда — обратно'}</span>
                 </button>
                 ${state.openPopover === 'dates' ? renderCalendarPopover() : ''}
               </div>
@@ -1213,10 +1213,9 @@
         element.className = 'popover time-picker';
         element.dataset.popover = 'true';
         element.setAttribute('role', 'dialog');
-        element.setAttribute('aria-labelledby', 'meeting-time-heading');
+        element.setAttribute('aria-label', 'Время встречи');
         const column = (name, max) => `<div class="wheel-column subtitle" tabindex="0" role="spinbutton" aria-label="${name}" aria-valuemin="0" aria-valuemax="${max}">${'<span aria-hidden="true"></span>'.repeat(7)}</div>`;
         element.innerHTML = `
-          <h2 id="meeting-time-heading" class="subtitle">В офисе к</h2>
           <div class="time-wheels">${column('Часы',23)}<span class="wheel-separator subtitle" aria-hidden="true">:</span>${column('Минуты',59)}</div>
           <div class="time-actions">
             <button type="button" class="btn-secondary" data-time-clear>Не важно</button>
