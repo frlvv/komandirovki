@@ -459,13 +459,32 @@
 
       const particleField = '<span class="speed-particles" aria-hidden="true"></span>';
 
+      function renderJourneyFill(progress, cap) {
+        return `<div class="journey-progress" data-journey-progress="${progress}" data-journey-cap="${cap}" aria-hidden="true">
+          <svg class="journey-progress-defs" width="100%" height="100%" focusable="false">
+            <defs>
+              <filter id="journey-edge-soften" filterUnits="userSpaceOnUse" x="-150" y="0" width="100%" height="100%">
+                <feGaussianBlur stdDeviation="14 0" edgeMode="duplicate"/>
+              </filter>
+              <clipPath id="journey-progress-limit"><rect width="0" height="100%"/></clipPath>
+              <mask id="journey-progress-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="100%" height="100%" style="mask-type:alpha">
+                <g clip-path="url(#journey-progress-limit)">
+                  <path fill="white" filter="url(#journey-edge-soften)"/>
+                </g>
+              </mask>
+            </defs>
+          </svg>
+          <div class="journey-progress-paint">${particleField}</div>
+        </div>`;
+      }
+
       function renderStepsBar() {
         const out = getOutFlight();
         const back = getRetFlight();
         const hotel = getHotel();
         const active = state.step === 5 ? 2 : state.step === 3 ? 1 : 0;
-        const progress = state.step === 5 ? 100 : out && back ? 100 / 3 : out ? 32 : 30;
-        const cap = state.step === 5 ? 100 : 100 / 3;
+        const progress = state.step === 5 ? 3 : out && back ? 1 : out ? .96 : .90;
+        const cap = state.step === 5 ? 3 : 1;
         const steps = [
           [2, 'Билеты', [out?.depart, back?.depart].filter(Boolean).join(' · ') || 'Туда и обратно', false],
           [3, 'Проживание', hotel ? hotelName(hotel) : 'Не выбрано', !out || !back],
@@ -479,7 +498,7 @@
               <span>${icon('date')} ${getShortDates()}</span><span>${icon('stay')} ${pluralNights(getNights())}</span></div>
           </div>
           <nav class="steps-bar speed-steps" aria-label="Шаги командировки">
-            <div class="speed-fill" data-speed="journey" style="--progress:${progress}%;--progress-cap:${cap}%">${particleField}</div>
+            ${renderJourneyFill(progress, cap)}
             ${steps.map(([stage,name,detail,disabled],i) => `
               <button class="step-card ${i <= active ? 'active' : ''}" type="button"
                 data-action="go-step" data-step="${stage}" ${i === active ? 'aria-current="step"' : ''} ${disabled ? 'disabled' : ''}>
@@ -692,7 +711,7 @@
             <button class="hotel-stage" data-action="go-step" data-step="2"><small>${ICON.check} Билеты</small><strong>Туда · ${out.depart}–${out.arrive}</strong><span>Обратно · ${back.depart}–${back.arrive} · 2 из 2</span></button>
             <div class="hotel-stage current"><small>${icon('stay')} Отель</small><strong>${hotel ? esc(hotelName(hotel)) : 'Выберите отель'}</strong>
               <span>${hotel ? esc(hotel.commuteFull) + ' · ' : ''}Заезд ${state.startDay} декабря · выезд ${state.endDay} декабря</span></div>
-            <div class="hotel-stage-rail"><span class="speed-fill" data-speed="hotel-stage" style="--progress:${hotel ? 86 : 66.66}%">${particleField}</span></div>
+            <div class="hotel-stage-rail">${renderJourneyFill(2, 2)}</div>
           </nav>`;
       }
 
@@ -1265,6 +1284,88 @@
         hours.focus({preventScroll:true});
       }
 
+      let journeyPosition = 0;
+      let stopJourneyProgress = () => {};
+
+      function animateJourneyProgress(app) {
+        const layer = app.querySelector('[data-journey-progress]');
+        if (!layer) return;
+
+        const target = Number(layer.dataset.journeyProgress);
+        const cap = Number(layer.dataset.journeyCap);
+        const isHotelRail = layer.parentElement.classList.contains('hotel-stage-rail');
+        const path = layer.querySelector('mask path');
+        const limit = layer.querySelector('clipPath rect');
+        const filter = layer.querySelector('filter');
+        const blur = filter.firstElementChild;
+        // The hotel rail also counts the route as a completed section.
+        const sectionPosition = value => (value + (isHotelRail ? 1 : 0)) / 3;
+        const start = Math.min(journeyPosition, cap);
+        const startedAt = performance.now();
+        const duration = Math.abs(target - start) < .08 ? 570 : 1100;
+        let width = 0;
+        let height = 0;
+        let sigma;
+        let frame;
+        let lastDraw = -Infinity;
+
+        function draw(now) {
+          const fraction = motionPreference.matches ? 1 : Math.min(1, (now - startedAt) / duration);
+          const eased = fraction * fraction * (3 - 2 * fraction);
+          journeyPosition = fraction === 1 ? target : start + (target - start) * eased;
+
+          const time = motionPreference.matches ? 0 : now / 1000;
+          const amplitude = sigma * .32;
+          // The outermost noise lobe plus the blur tail both decay inside the active section.
+          const front = width * sectionPosition(journeyPosition) - 7;
+          const center = front - 3.2 * sigma - amplitude;
+          const edge = y => center + amplitude * (
+            .51 * Math.sin(time * .62 + y * 4.1) +
+            .31 * Math.sin(time * .43 - y * 7.3 + .7) +
+            .18 * Math.sin(time * .277 + y * 11.7 + 1.4)
+          );
+          const x = y => edge(y).toFixed(2);
+          const h = height;
+          path.setAttribute('d', `M-145 0 H${x(0)} C${x(.17)} ${h / 6} ${x(.33)} ${h / 3} ${x(.5)} ${h / 2} C${x(.67)} ${h * 2 / 3} ${x(.83)} ${h * 5 / 6} ${x(1)} ${h} H-145 Z`);
+          lastDraw = now;
+        }
+
+        function tick(now) {
+          const growing = journeyPosition !== target;
+          if (growing || now - lastDraw >= 30) draw(now);
+          frame = requestAnimationFrame(tick);
+        }
+
+        function resize() {
+          width = layer.clientWidth;
+          height = layer.clientHeight;
+          sigma = Math.max(6, Math.min(16, width / 64));
+          limit.setAttribute('width', Math.max(0, width * sectionPosition(cap) - 4));
+          filter.setAttribute('width', width + 300);
+          blur.setAttribute('stdDeviation', `${sigma} 0`);
+          layer.style.setProperty('--journey-stop', `${width * sectionPosition(target) - 7}px`);
+          layer.style.setProperty('--journey-fade', `${sigma * 5}px`);
+          draw(performance.now());
+        }
+
+        const observer = new ResizeObserver(resize);
+        observer.observe(layer);
+        function updateMotion() {
+          cancelAnimationFrame(frame);
+          draw(performance.now());
+          if (!motionPreference.matches) frame = requestAnimationFrame(tick);
+        }
+
+        resize();
+        updateMotion();
+        motionPreference.addEventListener('change', updateMotion);
+        stopJourneyProgress = () => {
+          cancelAnimationFrame(frame);
+          observer.disconnect();
+          motionPreference.removeEventListener('change', updateMotion);
+        };
+      }
+
       const previousProgress = new Map();
       let previousScreen = null;
       function animateProgress() {
@@ -1313,6 +1414,8 @@
       }
 
       function render() {
+        stopJourneyProgress();
+        stopJourneyProgress = () => {};
         closeTimePicker();
         stopHero();
         stopHero = () => {};
@@ -1328,6 +1431,7 @@
         const app = document.getElementById('app');
 
         if (state.step === 1) {
+          journeyPosition = 0;
           previousProgress.clear();
           previousScreen = null;
           app.innerHTML = renderStep1();
@@ -1357,6 +1461,7 @@
           </div>
         `;
 
+        animateJourneyProgress(app);
         animateProgress();
         if (state.hoverFlightId) refreshFlightBudgetPreview([...OUTBOUND_FLIGHTS, ...RETURN_FLIGHTS].find(f => f.id === state.hoverFlightId));
         bindInputs();
