@@ -39,6 +39,12 @@
         'Партнёры', 'Обучение'
       ];
 
+      const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
+      const HERO_PHRASES = ['в командировку', 'на встречу', 'на конференцию', 'на обучение'];
+      const heroStart = performance.now();
+      let stopHero = () => {};
+      const morphLibrary = import('./assets/vendor/torph.mjs').catch(() => null);
+
       const MEETING_OPTIONS = [
         { id: 'any', label: 'Не важно', short: 'Не важно', minutes: null },
         { id: '10:00', label: 'К 10:00', short: '10:00', minutes: 10 * 60 },
@@ -97,7 +103,7 @@
           project: 'Мобильный банк',
           goal: '',
 
-          openPopover: null, // 'origin' | 'dest' | 'dates' | 'meeting' | 'project' | null
+          openPopover: null, // 'origin' | 'dest' | 'dates' | 'project' | null
           searchError: { dest: false, dates: false },
 
           flightTab: 'out', // 'out' | 'ret'
@@ -301,6 +307,23 @@
         `;
       }
 
+      function renderProjectOptions() {
+        return `<div class="popover project-options" data-popover="true">
+          ${PROJECTS.map(p => `
+            <button type="button" class="pop-item ${state.project === p.name ? 'selected' : ''}" data-action="pick-project" data-val="${esc(p.name)}">
+              <span>${esc(p.name)}</span><small>${esc(p.manager)}</small>
+            </button>`).join('')}
+        </div>`;
+      }
+
+      function renderProjectTrigger(project, triggerClass) {
+        const open = state.openPopover === 'project';
+        return `<div class="approval-project">
+          <button type="button" class="project-trigger ${triggerClass}" data-action="open-pop" data-pop="project" aria-expanded="${open}">${esc(project.name)} ${icon('edit')}</button>
+          ${open ? renderProjectOptions() : ''}
+        </div>`;
+      }
+
       function renderStep1() {
         const datesText = getDatesLabel();
         const meeting = getMeeting();
@@ -311,7 +334,7 @@
           <div class="start-shell ${isStep1Complete() ? 'has-trip' : ''}">
             <section class="start-hero" aria-labelledby="start-title">
               <div class="hero-copy">
-                <h1 class="start-title" id="start-title">Собираемся в командировку</h1>
+                <h1 class="start-title" id="start-title" aria-label="Собираемся в командировку"><span class="hero-morph" aria-hidden="true">Собираемся в командировку</span></h1>
                 <p>Подберите рейсы и отель, затем отправьте поездку на согласование.</p>
               </div>
               <div class="search-bar">
@@ -361,19 +384,10 @@
               </div>
 
               <div class="seg">
-                <button type="button" class="seg-btn ${state.openPopover === 'meeting' ? 'open' : ''}" data-action="open-pop" data-pop="meeting" aria-expanded="${state.openPopover === 'meeting'}">
+                <button type="button" class="seg-btn" data-action="edit-meeting" data-time-anchor="home" aria-haspopup="dialog" aria-expanded="false">
                   <span class="seg-label">В офисе к</span>
-                  <span class="seg-val ${meeting.id === 'any' ? 'placeholder' : ''}">${esc(meeting.label)}</span>
+                  <span class="seg-val ${meeting.id === 'any' ? 'placeholder' : ''}">${esc(meeting.short)}</span>
                 </button>
-                ${state.openPopover === 'meeting' ? `
-                  <div class="popover align-right" style="min-width:200px;" data-popover="true">
-                    ${MEETING_OPTIONS.map(m => `
-                      <button type="button" class="pop-item ${state.meetingId === m.id ? 'selected' : ''}" data-action="pick-meeting" data-id="${m.id}">
-                        <span>${esc(m.label)}</span>
-                      </button>
-                    `).join('')}
-                  </div>
-                ` : ''}
               </div>
               </div>
             </section>
@@ -417,16 +431,7 @@
                     <span>${esc(proj.name)}</span>
                     <span style="color:var(--ink-tertiary); display:inline-flex;">${ICON.chevron}</span>
                   </button>
-                  ${state.openPopover === 'project' ? `
-                    <div class="popover" style="width:100%;" data-popover="true">
-                      ${PROJECTS.map(p => `
-                        <button type="button" class="pop-item ${state.project === p.name ? 'selected' : ''}" data-action="pick-project" data-val="${esc(p.name)}">
-                          <span>${esc(p.name)}</span>
-                          <span style="font-size:12px; color:var(--ink-tertiary);">${esc(p.manager)}</span>
-                        </button>
-                      `).join('')}
-                    </div>
-                  ` : ''}
+                  ${state.openPopover === 'project' ? renderProjectOptions() : ''}
                 </div>
 
                 <div class="manager-strip">
@@ -459,7 +464,8 @@
         const back = getRetFlight();
         const hotel = getHotel();
         const active = state.step === 5 ? 2 : state.step === 3 ? 1 : 0;
-        const progress = state.step === 5 ? 100 : state.step === 3 ? (hotel ? 78 : 67) : out && back ? 56 : out ? 42 : 33.34;
+        const progress = state.step === 5 ? 100 : out && back ? 100 / 3 : out ? 32 : 30;
+        const cap = state.step === 5 ? 100 : 100 / 3;
         const steps = [
           [2, 'Билеты', [out?.depart, back?.depart].filter(Boolean).join(' · ') || 'Туда и обратно', false],
           [3, 'Проживание', hotel ? hotelName(hotel) : 'Не выбрано', !out || !back],
@@ -473,7 +479,7 @@
               <span>${icon('date')} ${getShortDates()}</span><span>${icon('stay')} ${pluralNights(getNights())}</span></div>
           </div>
           <nav class="steps-bar speed-steps" aria-label="Шаги командировки">
-            <div class="speed-fill" data-speed="journey" style="--progress:${progress}%">${particleField}</div>
+            <div class="speed-fill" data-speed="journey" style="--progress:${progress}%;--progress-cap:${cap}%">${particleField}</div>
             ${steps.map(([stage,name,detail,disabled],i) => `
               <button class="step-card ${i <= active ? 'active' : ''}" type="button"
                 data-action="go-step" data-step="${stage}" ${i === active ? 'aria-current="step"' : ''} ${disabled ? 'disabled' : ''}>
@@ -545,9 +551,9 @@
           <div class="journey-chart" aria-label="${flight.depart}–${flight.arrive}, ${status}">
             <div class="chart-badges">
               ${outbound && office ? `<span class="arrival-tag ${closeMarkers ? (arrival <= meeting ? 'edge-left' : 'edge-right') : ''}" style="left:${pos(arrival)}%">≈${clock(arrival)}</span>` : ''}
-              ${hasMeeting ? `<button class="meeting-tag ${closeMarkers && arrival > meeting ? 'edge-left' : ''}" data-action="edit-meeting" type="button"
+              ${hasMeeting ? `<button class="meeting-tag ${closeMarkers && arrival > meeting ? 'edge-left' : ''}" data-action="edit-meeting" data-time-anchor="timeline" aria-haspopup="dialog" aria-expanded="false" type="button"
                 style="left:${markerLeft}%">Встреча ${clock(meeting)} ${icon('edit')}</button>` :
-                outbound && office ? '<button type="button" class="meeting-tag meeting-add" data-action="edit-meeting">Указать встречу</button>' : ''}
+                outbound && office ? '<button type="button" class="meeting-tag meeting-add" data-action="edit-meeting" data-time-anchor="timeline" aria-haspopup="dialog" aria-expanded="false">Указать встречу</button>' : ''}
             </div>
             <div class="journey-track">
               ${tickTimes.map(time => `<i class="journey-rule" style="left:${pos(time)}%"></i>`).join('')}
@@ -589,10 +595,10 @@
                 return `<article class="flight-card ${chosen ? 'selected' : ''}" data-hover-flight="${f.id}" tabindex="0">
                   <div class="fc-route">
                     <span class="fc-end"><strong class="fc-time">${f.depart}</strong><span class="fc-city">${airportCodes[start] || '—'}</span></span>
-                    <span class="fc-duration"><span>В пути ${f.duration}</span><span>Прямой</span></span>
+                    <div class="fc-duration"><span>В пути ${f.duration}</span><span class="fc-connector" aria-hidden="true"></span><span class="fc-direct">Прямой</span></div>
                     <span class="fc-end"><strong class="fc-time">${f.arrive}</strong><span class="fc-city">${airportCodes[end] || '—'}</span></span>
                   </div>
-                  <div class="fc-airline"><img class="airline-logo" src="./assets/airline-${airlineLogos[f.airline]}.svg" width="54" height="24" alt="">${f.airline}<span class="fc-bag">${f.bag} ${icon('bag',20)}</span></div>
+                  <div class="fc-airline"><img class="airline-logo" src="./assets/airline-${airlineLogos[f.airline]}.svg" width="54" height="24" alt="">${f.airline}<span class="fc-bag">${f.bag} ${icon('bag',24)}</span></div>
                   <div class="fc-right"><strong class="fc-price">${fmt(f.price)}</strong><small class="${over ? 'over-price' : ''}">${over ? 'Выше лимита' : 'В лимите'}</small></div>
                   <div class="fc-actions"><button type="button" class="flight-choose" data-action="${outbound ? 'pick-out' : 'pick-ret'}" data-id="${f.id}" aria-pressed="${chosen}">${chosen ? 'Выбран' : 'Выбрать'}</button>
                     <button type="button" class="text-action" data-action="flight-details" data-id="${f.id}">Подробнее ${ICON.chevron}</button></div>
@@ -758,41 +764,64 @@
         `;
       }
 
+      const limitPosition = 75;
+
+      function budgetPosition(current, limit) {
+        if (current <= limit) return current / limit * limitPosition;
+        return limitPosition + Math.min(25, Math.max(6, (current - limit) / limit * 55));
+      }
+
+      function budgetAmount(current, limit) {
+        return current
+          ? `${fmt(current)} <span class="limit-muted">/ ${fmt(limit)}</span>`
+          : `до ${fmt(limit)}`;
+      }
+
       function renderThermostat(id, label, current, limit, tooltipText) {
-        const LIMIT_POS = 75;
-        let inPct = 0;
-        let overPct = 0;
-        if (current > 0) {
-          if (current <= limit) {
-            inPct = (current / limit) * LIMIT_POS;
-          } else {
-            inPct = LIMIT_POS;
-            const excessRatio = (current - limit) / limit;
-            overPct = Math.min(25, Math.max(6, excessRatio * 55));
-          }
-        }
-        const isOver = current > limit;
+        const position = budgetPosition(current, limit);
         const isOpen = state.infoTip === id;
 
         return `
-          <div class="thermo-item">
+          <div class="thermo-item" data-budget="${id}">
             <div class="thermo-top">
               <div class="thermo-label-wrap">
                 <span class="thermo-name">${label}</span>
-                <button type="button" class="info-btn ${isOpen ? 'open' : ''}" data-action="toggle-tip" data-tip="${id}" aria-expanded="${isOpen}" aria-label="Подробнее об ориентире: ${label}">i</button>
+                <button type="button" class="info-btn ${isOpen ? 'open' : ''}" data-action="toggle-tip" data-tip="${id}" aria-expanded="${isOpen}" aria-describedby="budget-tip-${id}" aria-label="Подробнее об ориентире: ${label}">i</button>
+                <div class="info-tooltip" id="budget-tip-${id}" role="tooltip" data-popover="true">${tooltipText}</div>
               </div>
-              ${current > 0
-                ? `<span class="thermo-nums ${isOver ? 'over' : ''}">${fmt(current)} <span class="limit-muted">/ ${fmt(limit)}</span></span>`
-                : `<span class="thermo-nums empty">до ${fmt(limit)}</span>`}
+              <span class="thermo-nums ${current ? '' : 'empty'} ${current > limit ? 'over' : ''}">${budgetAmount(current, limit)}</span>
             </div>
-            ${isOpen ? `<div class="info-tooltip" data-popover="true">${tooltipText}</div>` : ''}
             <div class="thermo-track">
-              <div class="thermo-fill-in speed-meter" data-speed="${id}-in" style="--progress:${inPct}%">${particleField}</div>
-              <div class="thermo-fill-over speed-meter" data-speed="${id}-over" style="--progress:${overPct}%">${particleField}</div>
-              <div class="thermo-tick" style="left:${LIMIT_POS}%;"></div>
+              <div class="thermo-fill-in speed-meter" data-speed="${id}-in" style="--progress:${Math.min(position, limitPosition)}%">${particleField}</div>
+              <div class="thermo-fill-over speed-meter" data-speed="${id}-over" style="--progress:${Math.max(0, position - limitPosition)}%">${particleField}</div>
+              ${id === 'flight' ? '<div class="thermo-preview" aria-hidden="true"></div>' : ''}
+              <div class="thermo-tick" style="left:${limitPosition}%"></div>
             </div>
           </div>
         `;
+      }
+
+      function refreshFlightBudgetPreview(flight) {
+        const budget = document.querySelector('[data-budget="flight"]');
+        const total = document.querySelector('[data-flight-total]');
+        if (!budget || !total) return;
+        const selected = state.flightTab === 'out' ? getOutFlight() : getRetFlight();
+        const complement = state.flightTab === 'out' ? getRetFlight() : getOutFlight();
+        const preview = flight && flight.id !== selected?.id;
+        const price = preview ? (complement?.price || 0) + flight.price : getFlightsTotal();
+        const amount = budget.querySelector('.thermo-nums');
+        amount.innerHTML = budgetAmount(price, FLIGHT_LIMIT);
+        amount.classList.toggle('empty', price === 0);
+        amount.classList.toggle('over', price > FLIGHT_LIMIT);
+
+        const start = budgetPosition(complement?.price || 0, FLIGHT_LIMIT);
+        const end = budgetPosition(price, FLIGHT_LIMIT);
+        budget.style.setProperty('--preview-start', `${start}%`);
+        budget.style.setProperty('--preview-width', `${Math.max(0, end - start)}%`);
+        budget.style.setProperty('--preview-limit', `${Math.min(100, Math.max(0, (limitPosition - start) / (end - start) * 100) || 0)}%`);
+        budget.classList.toggle('previewing', Boolean(preview));
+        const tripPrice = price + getHotelTotal(getHotel());
+        total.textContent = tripPrice ? fmt(tripPrice) : 'до ' + fmt(FLIGHT_LIMIT + getHotelLimitTotal());
       }
 
       function renderSidebar() {
@@ -843,9 +872,9 @@
                 ${renderThermostat('hotel', 'Отель', hTotal, hLimit, hotelTip)}
               </div>
             </div>
-            <div class="side-total total-row"><span>Итого</span><strong>${total ? fmt(total) : 'до ' + fmt(FLIGHT_LIMIT + hLimit)}</strong></div>
+            <div class="side-total total-row"><span>Итого</span><strong data-flight-total>${total ? fmt(total) : 'до ' + fmt(FLIGHT_LIMIT + hLimit)}</strong></div>
             <div class="flight-approval"><h2 class="bc-title">Согласование</h2>
-              <div class="approval-line"><span>Проект</span><button type="button" data-action="edit-project">${esc(proj.name)} ${icon('edit')}</button></div>
+              <div class="approval-line"><span>Проект</span>${renderProjectTrigger(proj, '')}</div>
               <div class="approval-line"><span>Согласует поездку</span><strong>${esc(proj.manager)}</strong></div>
             </div>
             <div class="side-reassurance">${icon('approval',24)} ${overrun.hasOver ? 'Есть превышение лимита' : 'Все по кайфу'}</div>
@@ -858,7 +887,7 @@
           <aside class="side-col">
             <div class="budget-card">
               <h2 class="bc-title">Бюджет и согласование</h2>
-              <div class="project-pill">${esc(proj.name)}</div>
+              ${renderProjectTrigger(proj, 'project-pill')}
               <div class="thermo-list">
                 ${renderThermostat('flight', 'Авиабилеты', fTotal, FLIGHT_LIMIT, flightTip)}
                 ${renderThermostat('hotel', 'Отель', hTotal, hLimit, hotelTip)}
@@ -1037,6 +1066,206 @@
         `;
       }
 
+      let timePicker = null;
+      const wheelRow = 36;
+      const wheelAngle = Math.PI / 9;
+      const wheelRadius = wheelRow / 2 / Math.tan(wheelAngle / 2);
+      const twoDigits = value => String(value).padStart(2, '0');
+
+      function connectTimeWheel(element, initial, count) {
+        const rows = Array.from(element.querySelectorAll('span'));
+        const wrap = value => (value % count + count) % count;
+        let position = initial;
+        let destination = initial;
+        let frame;
+        let wheelTimer;
+        let drag;
+
+        function paint(value) {
+          position = value;
+          const center = Math.round(position);
+          const selected = wrap(center);
+          element.setAttribute('aria-valuenow', selected);
+          element.setAttribute('aria-valuetext', twoDigits(selected));
+          rows.forEach((row, index) => {
+            const offset = center + index - 3 - position;
+            const angle = offset * wheelAngle;
+            const scale = .8 + .2 * Math.cos(angle);
+            row.textContent = twoDigits(wrap(center + index - 3));
+            row.style.transform = `translateY(${Math.sin(angle) * wheelRadius}px) scale(${scale})`;
+            row.style.opacity = Math.max(0, 1 - Math.abs(offset) * .29);
+          });
+        }
+
+        function cancelMotion() {
+          cancelAnimationFrame(frame);
+          clearTimeout(wheelTimer);
+        }
+
+        function snap(target, velocity = 0) {
+          cancelMotion();
+          destination = target;
+          const from = position;
+          if (motionPreference.matches || Math.abs(target - from) < .001) {
+            paint(target);
+            return;
+          }
+
+          const started = performance.now();
+          const displacement = from - target;
+          const isFlick = velocity !== 0;
+          function tick(now) {
+            const elapsed = (now - started) / 1000;
+            // The flick uses the reference's 140 stiffness and 24 damping.
+            const delta = isFlick
+              ? (displacement + (velocity + 10 * displacement) * (1 - Math.exp(-4 * elapsed)) / 4) * Math.exp(-10 * elapsed)
+              : displacement * Math.exp(-14 * elapsed) * (Math.cos(13 * elapsed) + 14 / 13 * Math.sin(13 * elapsed));
+            if (elapsed >= (isFlick ? 1.2 : .4) || (isFlick && elapsed > .35 && Math.abs(delta) < .005)) {
+              paint(target);
+              return;
+            }
+            paint(target + delta);
+            frame = requestAnimationFrame(tick);
+          }
+          frame = requestAnimationFrame(tick);
+        }
+
+        element.addEventListener('wheel', event => {
+          event.preventDefault();
+          cancelMotion();
+          const units = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? element.clientHeight : 1;
+          paint(position + event.deltaY * units * .4 / wheelRow);
+          destination = Math.round(position);
+          wheelTimer = setTimeout(() => snap(Math.round(position)), 120);
+        }, {passive:false});
+
+        element.addEventListener('keydown', event => {
+          const shifts = {ArrowUp:1, ArrowDown:-1, PageUp:5, PageDown:-5};
+          if (Object.hasOwn(shifts, event.key)) {
+            event.preventDefault();
+            snap(destination + shifts[event.key]);
+          } else if (event.key === 'Home' || event.key === 'End') {
+            event.preventDefault();
+            snap(destination - wrap(destination) + (event.key === 'End' ? count - 1 : 0));
+          }
+        });
+
+        element.addEventListener('pointerdown', event => {
+          if (!event.isPrimary || event.button !== 0) return;
+          cancelMotion();
+          element.setPointerCapture(event.pointerId);
+          drag = {id:event.pointerId, y:event.clientY, initial:position, samples:[[event.timeStamp, position]]};
+        });
+
+        element.addEventListener('pointermove', event => {
+          if (!drag || drag.id !== event.pointerId) return;
+          const distance = event.clientY - drag.y;
+          if (!drag.moving && Math.abs(distance) < 4) return;
+          drag.moving = true;
+          paint(drag.initial - distance / wheelRow);
+          drag.samples.push([event.timeStamp, position]);
+          while (drag.samples.length > 2 && event.timeStamp - drag.samples[0][0] > 80) drag.samples.shift();
+        });
+
+        function release(event) {
+          if (!drag || drag.id !== event.pointerId) return;
+          const {moving, samples} = drag;
+          drag = null;
+          if (event.type === 'pointercancel') {
+            snap(Math.round(position));
+            return;
+          }
+          if (!moving) {
+            const bounds = element.getBoundingClientRect();
+            const ratio = (event.clientY - bounds.top - bounds.height / 2) / wheelRadius;
+            const offset = Math.asin(Math.max(-1, Math.min(1, ratio))) / wheelAngle;
+            snap(Math.round(position) + Math.round(offset));
+            return;
+          }
+          const [start, first] = samples[0];
+          const [end, last] = samples.at(-1);
+          const velocity = end > start && event.timeStamp - end <= 80 ? (last - first) * 1000 / (end - start) : 0;
+          if (Math.abs(velocity) < 2 || motionPreference.matches) snap(Math.round(position));
+          else snap(Math.round(position + velocity * .32), velocity);
+        }
+        element.addEventListener('pointerup', release);
+        element.addEventListener('pointercancel', release);
+        paint(initial);
+        return {value:() => wrap(drag ? Math.round(position) : destination), cancel:cancelMotion};
+      }
+
+      function closeTimePicker(restoreFocus = false) {
+        if (!timePicker) return;
+        const {element, anchor, dispose} = timePicker;
+        timePicker = null;
+        dispose();
+        element.remove();
+        anchor.setAttribute('aria-expanded', 'false');
+        anchor.removeAttribute('aria-controls');
+        anchor.classList.remove('open');
+        if (restoreFocus) anchor.focus({preventScroll:true});
+      }
+
+      function openTimePicker(anchor) {
+        if (!anchor) return;
+        const element = document.createElement('section');
+        element.id = 'meeting-time-picker';
+        element.className = 'popover time-picker';
+        element.dataset.popover = 'true';
+        element.setAttribute('role', 'dialog');
+        element.setAttribute('aria-labelledby', 'meeting-time-heading');
+        const column = (name, max) => `<div class="wheel-column subtitle" tabindex="0" role="spinbutton" aria-label="${name}" aria-valuemin="0" aria-valuemax="${max}">${'<span aria-hidden="true"></span>'.repeat(7)}</div>`;
+        element.innerHTML = `
+          <h2 id="meeting-time-heading" class="subtitle">В офисе к</h2>
+          <div class="time-wheels">${column('Часы',23)}<span class="wheel-separator subtitle" aria-hidden="true">:</span>${column('Минуты',59)}</div>
+          <div class="time-actions">
+            <button type="button" class="btn-secondary" data-time-clear>Не важно</button>
+            <button type="button" class="btn-primary" data-time-save>Готово</button>
+          </div>`;
+        document.body.append(element);
+        const [hours, mins] = element.querySelectorAll('.wheel-column');
+        const initial = getMeeting().minutes ?? 600;
+        const hourWheel = connectTimeWheel(hours, Math.floor(initial / 60), 24);
+        const minuteWheel = connectTimeWheel(mins, initial % 60, 60);
+        const context = anchor.dataset.timeAnchor;
+        anchor.setAttribute('aria-controls', element.id);
+        anchor.setAttribute('aria-expanded', 'true');
+        anchor.classList.add('open');
+
+        function position() {
+          if (!anchor.isConnected) {
+            closeTimePicker();
+            return;
+          }
+          const bounds = anchor.getBoundingClientRect();
+          const maxLeft = document.documentElement.clientWidth - element.offsetWidth - 8;
+          element.style.left = Math.max(8, Math.min(maxLeft, bounds.right - element.offsetWidth)) + 'px';
+          const below = window.innerHeight - bounds.bottom - 8;
+          const top = below >= element.offsetHeight ? bounds.bottom + 8 : bounds.top - element.offsetHeight - 8;
+          element.style.top = Math.max(8, Math.min(window.innerHeight - element.offsetHeight - 8, top)) + 'px';
+        }
+
+        function commit(value) {
+          closeTimePicker();
+          state.meetingId = value;
+          render();
+          document.querySelector(`[data-time-anchor="${context}"]`)?.focus({preventScroll:true});
+        }
+
+        element.querySelector('[data-time-clear]').addEventListener('click', () => commit('any'));
+        element.querySelector('[data-time-save]').addEventListener('click', () => commit(`${twoDigits(hourWheel.value())}:${twoDigits(minuteWheel.value())}`));
+        window.addEventListener('resize', position);
+        window.addEventListener('scroll', position, true);
+        timePicker = {element, anchor, dispose() {
+          hourWheel.cancel();
+          minuteWheel.cancel();
+          window.removeEventListener('resize', position);
+          window.removeEventListener('scroll', position, true);
+        }};
+        position();
+        hours.focus({preventScroll:true});
+      }
+
       const previousProgress = new Map();
       let previousScreen = null;
       function animateProgress() {
@@ -1051,7 +1280,43 @@
         });
       }
 
+      function startHero() {
+        const element = document.querySelector('.hero-morph');
+        if (!element) return;
+        const cadence = 3700;
+        const currentIndex = () => Math.floor((performance.now() - heroStart) / cadence);
+        const phrase = index => 'Собираемся ' + HERO_PHRASES[index % HERO_PHRASES.length];
+        const start = motionPreference.matches ? 0 : currentIndex();
+        element.textContent = phrase(start);
+
+        let morph;
+        let timer;
+        let index = start;
+        const show = text => morph ? morph.update(text) : (element.textContent = text);
+        const update = () => {
+          const next = motionPreference.matches ? 0 : currentIndex();
+          if (next !== index) show(phrase(index = next));
+        };
+        morphLibrary.then(library => {
+          if (!library || !element.isConnected) return;
+          morph = new library.TextMorph({element, locale:'ru', duration:720, ease:'cubic-bezier(.22,1,.36,1)'});
+          morph.update(phrase(index));
+        });
+        const queue = () => {
+          update();
+          timer = setTimeout(queue, cadence - (performance.now() - heroStart) % cadence + 16);
+        };
+        queue();
+        stopHero = () => {
+          clearTimeout(timer);
+          morph?.destroy();
+        };
+      }
+
       function render() {
+        closeTimePicker();
+        stopHero();
+        stopHero = () => {};
         const active = document.activeElement;
         const focusAttributes = active?.dataset?.action && Object.entries(active.dataset);
         const restoreFocus = () => {
@@ -1067,6 +1332,7 @@
           previousProgress.clear();
           previousScreen = null;
           app.innerHTML = renderStep1();
+          startHero();
           bindInputs();
           restoreFocus();
           return;
@@ -1093,6 +1359,7 @@
         `;
 
         animateProgress();
+        if (state.hoverFlightId) refreshFlightBudgetPreview([...OUTBOUND_FLIGHTS, ...RETURN_FLIGHTS].find(f => f.id === state.hoverFlightId));
         bindInputs();
         restoreFocus();
       }
@@ -1143,6 +1410,7 @@
         const nextId = card?.dataset.hoverFlight ?? null;
         if (state.step !== 2 || nextId === state.hoverFlightId) return;
         state.hoverFlightId = nextId;
+        refreshFlightBudgetPreview([...OUTBOUND_FLIGHTS, ...RETURN_FLIGHTS].find(f => f.id === nextId));
         const container = document.getElementById('timeline-card');
         if (!container) return;
         const previous = container.querySelector('.seg-flight')?.offsetLeft;
@@ -1153,16 +1421,28 @@
 
       }
 
-      document.addEventListener('mouseover', e => previewFlight(e.target.closest('[data-hover-flight]')));
+      document.addEventListener('pointerover', e => {
+        const flight = e.target.closest('[data-hover-flight]');
+        if (e.pointerType !== 'touch' && flight) previewFlight(flight);
+      });
       document.addEventListener('focusin', e => {
         if (e.target.matches(':focus-visible')) previewFlight(e.target.closest('[data-hover-flight]'));
       });
-      document.addEventListener('mouseout', e => {
+      document.addEventListener('pointerout', e => {
         if (e.target.closest('[data-hover-flight]') && !e.relatedTarget?.closest?.('[data-hover-flight]')) {
           previewFlight(null);
         }
       });
+      document.addEventListener('focusout', e => {
+        if (e.target.closest('[data-hover-flight]') && !e.relatedTarget?.closest?.('[data-hover-flight]')) {
+          previewFlight(document.querySelector('[data-hover-flight]:hover'));
+        }
+      });
       document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && timePicker) {
+          closeTimePicker(true);
+          return;
+        }
         if (e.key !== 'Escape' || (!state.openPopover && !state.infoTip)) return;
         const pop = state.openPopover;
         const tip = state.infoTip;
@@ -1184,8 +1464,9 @@
       }
 
       document.addEventListener('click', function (e) {
+        if (timePicker && !timePicker.element.contains(e.target) && !e.target.closest('[data-time-anchor]')) closeTimePicker();
         const insidePop = e.target.closest('[data-popover="true"]');
-        const isPopTrigger = e.target.closest('[data-action="open-pop"], [data-action="toggle-tip"]');
+        const isPopTrigger = e.target.closest('[data-action="open-pop"], [data-action="toggle-tip"], [data-time-anchor]');
         const target = e.target.closest('[data-action]');
 
         if (!insidePop && !isPopTrigger && (state.openPopover || state.infoTip)) {
@@ -1207,18 +1488,20 @@
           openDialog(esc(title), '<p class="help-intro">' + esc(body) + '</p><div class="help-rows">' + rows + '</div>');
         } else if (action === 'close-dialog') {
           document.getElementById('help-dialog').close();
-        } else if (action === 'edit-project') {
-          openDialog('Проект', '<div class="help-rows">' + PROJECTS.map(p => `<button class="pop-item" data-action="pick-project" data-val="${esc(p.name)}">${esc(p.name)}<span>${esc(p.manager)}</span></button>`).join('') + '</div>');
         } else if (action === 'edit-meeting') {
-          openDialog('Время встречи', `<label class="dialog-field">К которому часу быть в офисе
-            <input type="time" id="meeting-time-edit" value="${getMeeting().short.match(/^\d\d:\d\d$/) ? getMeeting().short : '10:00'}" required></label>
-            <button type="button" class="btn-primary" data-action="save-meeting">Сохранить</button>`);
-        } else if (action === 'save-meeting') {
-          const field = document.getElementById('meeting-time-edit');
-          if (!field.reportValidity()) return;
-          state.meetingId = field.value;
-          document.getElementById('help-dialog').close();
-          render();
+          if (timePicker) {
+            closeTimePicker(true);
+            return;
+          }
+          if (state.openPopover || state.infoTip) {
+            state.openPopover = null;
+            state.infoTip = null;
+            const context = target.dataset.timeAnchor;
+            render();
+            openTimePicker(document.querySelector(`[data-time-anchor="${context}"]`));
+          } else {
+            openTimePicker(target);
+          }
         } else if (action === 'toggle-hotel-stop') {
           state.hotelStop = !state.hotelStop;
           render();
@@ -1259,15 +1542,11 @@
             state.endDay = null;
           }
           render();
-        } else if (action === 'pick-meeting') {
-          state.meetingId = target.getAttribute('data-id');
-          state.openPopover = null;
-          render();
         } else if (action === 'pick-project') {
-          document.getElementById('help-dialog').close();
           state.project = target.getAttribute('data-val');
           state.openPopover = null;
           render();
+          document.querySelector('[data-pop="project"]')?.focus({preventScroll:true});
         } else if (action === 'pick-goal') {
           state.goal = GOAL_CHIPS[Number(target.getAttribute('data-idx'))];
           render();
