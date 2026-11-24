@@ -1,12 +1,11 @@
     (function () {
       'use strict';
 
+      const icon = (name, size = 16) =>
+        `<img class="ui-icon" src="./assets/${name}.svg" width="${size}" height="${size}" alt="" aria-hidden="true">`;
       const ICON = {
-        plane: '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>',
-        chevron: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
-        check: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
-        lock: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
-        dot: '<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>'
+        plane: icon('flight',24), airborne: icon('airborne'), chevron: icon('chevron'),
+        check: icon('tick'), lock: icon('lock',18), dot: icon('notice',18)
       };
 
       const ORIGIN_CITIES = ['Москва', 'Санкт-Петербург', 'Казань', 'Екатеринбург'];
@@ -52,7 +51,6 @@
       const WORK_START = 9 * 60;
       const WORK_END = 18 * 60;
       const FLIGHT_LIMIT = 22000;
-      const HOTEL_PHOTOS = Object.fromEntries(['office','alt','plaza','grand'].map(id => [id, './assets/hotel-' + id + '.webp']));
       const HOTEL_NIGHT_LIMIT = 5000;
 
       const minutes = value => Number(value.slice(0, 2)) * 60 + Number(value.slice(3));
@@ -77,8 +75,8 @@
       const HOTELS = [
         { id: 'office', name: 'Отель у офиса', night: 6000, commuteShort: '5 мин пешком', commuteFull: '5 мин пешком до офиса', leaveOffset: 10, breakfast: true, x: 58, y: 29 },
         { id: 'alt', name: 'Отель Альтернатива', night: 4800, commuteShort: '25 мин на транспорте', commuteFull: '25 мин на транспорте до офиса', leaveOffset: 35, breakfast: true, x: 24, y: 66 },
-        { id: 'plaza', name: 'Казань Плаза', night: 4500, commuteShort: '30 мин на транспорте', commuteFull: '30 мин на транспорте до офиса', leaveOffset: 40, breakfast: false, x: 78, y: 63 },
-        { id: 'grand', name: 'Гранд Отель Центр', night: 7500, commuteShort: '12 мин пешком', commuteFull: '12 мин пешком до офиса', leaveOffset: 18, breakfast: true, x: 37, y: 25 }
+        { id: 'plaza', name: 'Центр Плаза', night: 4500, commuteShort: '18 мин на транспорте', commuteFull: '18 мин на транспорте до офиса', leaveOffset: 28, breakfast: false, x: 78, y: 63 },
+        { id: 'grand', name: 'Гранд Отель', night: 7500, commuteShort: '10 мин пешком', commuteFull: '10 мин пешком до офиса', leaveOffset: 15, breakfast: true, x: 37, y: 25 }
       ];
 
       const REASON_CHIPS = [
@@ -310,7 +308,7 @@
         const hasErr = state.searchError.dest || state.searchError.dates;
 
         return `
-          <div class="start-shell">
+          <div class="start-shell ${isStep1Complete() ? 'has-trip' : ''}">
             <section class="start-hero" aria-labelledby="start-title">
               <div class="hero-copy">
                 <h1 class="start-title" id="start-title">Собираемся в командировку</h1>
@@ -399,7 +397,7 @@
                     id="goal-input"
                     type="text"
                     class="text-input"
-                    placeholder="Например, встреча с командой разработки"
+                    placeholder="Например, конференция"
                     value="${esc(state.goal)}"
                   />
                 </div>
@@ -414,7 +412,7 @@
 
               <div class="start-project-column"><div class="start-card project-card">
                 <div class="card-field">
-                  <span class="card-label">Проект и бюджет</span>
+                  <span class="card-label">${isStep1Complete() ? 'Проект' : 'Проект и бюджет'}</span>
                   <button type="button" class="select-btn ${state.openPopover === 'project' ? 'open' : ''}" data-action="open-pop" data-pop="project" aria-expanded="${state.openPopover === 'project'}">
                     <span>${esc(proj.name)}</span>
                     <span style="color:var(--ink-tertiary); display:inline-flex;">${ICON.chevron}</span>
@@ -433,7 +431,7 @@
 
                 <div class="manager-strip">
                   <img src="./assets/manager.svg" alt="">
-                  <div><small>Руководитель</small><div>${esc(proj.manager)}</div></div>
+                  <div><small>${isStep1Complete() ? 'Согласует' : 'Руководитель'}</small><div>${esc(proj.manager)}</div></div>
                 </div>
               </div>
               <button type="button" class="btn-primary start-cta" data-action="find-tickets">Подобрать рейсы и отель</button>
@@ -445,7 +443,7 @@
               <div class="guide-grid">
                 ${[['rules','rules','Правила командировок','Что оплачивает компания и как устроен процесс','Смотреть правила'],['limits','notice','Превышение лимита','Как объяснить причину и получить согласование','Что делать при превышении'],['documents','documents','После поездки','Какие документы собрать после возвращения','Список документов']].map(([id,image,title,copy,action]) => `<article class="guide-card">
                   <img src="./assets/${image}.svg" alt=""><h3>${title}</h3><p>${copy}</p>
-                  <button type="button" class="btn-secondary" data-action="help" data-id="${id}">${action}</button>
+                  <button type="button" class="btn-secondary" data-action="help" data-id="${id === 'limits' ? 'overrun' : id}">Подробнее<span class="sr-only"> · ${action}</span></button>
                 </article>`).join('')}
               </div>
             </section>
@@ -464,23 +462,23 @@
         const progress = state.step === 5 ? 100 : state.step === 3 ? (hotel ? 78 : 67) : out && back ? 56 : out ? 42 : 33.34;
         const steps = [
           [2, 'Билеты', [out?.depart, back?.depart].filter(Boolean).join(' · ') || 'Туда и обратно', false],
-          [3, 'Проживание', hotel ? hotelName(hotel) : 'Выберите отель', !out || !back],
+          [3, 'Проживание', hotel ? hotelName(hotel) : 'Не выбрано', !out || !back],
           [5, 'Сводка', 'Проверьте перед отправкой', !out || !back || !hotel]
         ];
 
         return `
           <div class="trip-heading">
             <h1>${esc(state.goal || 'Командировка')}</h1>
-            <div class="trip-meta"><span>↔ ${esc(state.origin)} – ${esc(state.dest)}</span>
-              <span>${getShortDates()}</span><span>${pluralNights(getNights())}</span></div>
+            <div class="trip-meta"><span>${icon('route')} ${esc(state.origin)} – ${esc(state.dest)}</span>
+              <span>${icon('date')} ${getShortDates()}</span><span>${icon('stay')} ${pluralNights(getNights())}</span></div>
           </div>
           <nav class="steps-bar speed-steps" aria-label="Шаги командировки">
             <div class="speed-fill" data-speed="journey" style="--progress:${progress}%">${particleField}</div>
             ${steps.map(([stage,name,detail,disabled],i) => `
               <button class="step-card ${i <= active ? 'active' : ''}" type="button"
                 data-action="go-step" data-step="${stage}" ${i === active ? 'aria-current="step"' : ''} ${disabled ? 'disabled' : ''}>
-                <span class="sc-dot" aria-hidden="true">${i < active ? ICON.check : i === 0 ? ICON.plane : i + 1}</span>
-                <span><span class="sc-label">${name}</span><span class="sc-value" title="${esc(detail)}">${esc(detail)}</span></span>
+                <span class="sc-dot" aria-hidden="true">${i === 0 ? ICON.plane : i === 1 ? icon('stay',24) : icon('summary',24)}</span>
+                <span><span class="sc-label">${name === 'Проживание' ? 'Проживание' : name}</span><span class="sc-value" title="${esc(detail)}">${esc(detail)}</span></span>
               </button>`).join('')}
           </nav>`;
       }
@@ -524,7 +522,7 @@
           : (office ? 'В офисе ≈' + clock(arrival) : 'Прилёт в ' + flight.arrive))
           : (balance < 0 ? 'Уйти из офиса в ' + clock(leave) : 'Успеете завершить рабочий день');
         const stop = outbound && state.hotelStop && office;
-        const flightSegment = [flight.depMin,flight.arrMin,'flight',`${ICON.plane} ${flight.depart}–${flight.arrive}`];
+        const flightSegment = [flight.depMin,flight.arrMin,'flight',`${ICON.airborne} ${flight.depart}–${flight.arrive}`];
         const segments = outbound
           ? [flightSegment, ...(office
             ? stop ? [[flight.arrMin,flight.arrMin+35,'taxi','≈35 мин'],[flight.arrMin+35,flight.arrMin+45,'hotel','Отель'],[flight.arrMin+45,arrival,'taxi','≈'+(arrival-flight.arrMin-45)+' мин']]
@@ -533,7 +531,7 @@
           : [[WORK_START,Math.min(leave, WORK_END),'work','Рабочий день'],[leave,leave+TAXI_MINUTES,'taxi','Такси'],
             [leave+TAXI_MINUTES,flight.depMin,'airport','Аэропорт'],flightSegment];
         const closeMarkers = hasMeeting && Math.abs(pos(meeting) - pos(arrival)) < 16;
-        const markerLeft = hasMeeting ? Math.min(pos(meeting), closeMarkers ? 87 : 92) : 0;
+        const markerLeft = hasMeeting ? Math.min(pos(meeting) + (closeMarkers && arrival <= meeting ? 5 : 0), 92) : 0;
         const date = outbound ? state.startDay : state.endDay;
 
         return `
@@ -548,7 +546,7 @@
             <div class="chart-badges">
               ${outbound && office ? `<span class="arrival-tag ${closeMarkers ? (arrival <= meeting ? 'edge-left' : 'edge-right') : ''}" style="left:${pos(arrival)}%">≈${clock(arrival)}</span>` : ''}
               ${hasMeeting ? `<button class="meeting-tag ${closeMarkers && arrival > meeting ? 'edge-left' : ''}" data-action="edit-meeting" type="button"
-                style="left:${markerLeft}%">Встреча ${clock(meeting)} <span aria-hidden="true">✎</span></button>` :
+                style="left:${markerLeft}%">Встреча ${clock(meeting)} ${icon('edit')}</button>` :
                 outbound && office ? '<button type="button" class="meeting-tag meeting-add" data-action="edit-meeting">Указать встречу</button>' : ''}
             </div>
             <div class="journey-track">
@@ -580,7 +578,7 @@
               ${[['out',state.origin,state.dest,state.startDay],['ret',state.dest,state.origin,state.endDay]].map(([tab,from,to,day]) => `
                 <button type="button" class="dir-tab ${state.flightTab === tab ? 'active' : ''}" data-action="flight-tab" data-tab="${tab}"
                   aria-pressed="${state.flightTab === tab}" ${tab === 'ret' && !getOutFlight() ? 'disabled' : ''}>
-                  ${ICON.plane}<span><strong>${esc(from)} – ${esc(to)}</strong><small>${dayLabel(day)}</small></span>
+                  ${icon('direction',36)}<span><strong>${esc(from)} – ${esc(to)}</strong><small>${dayLabel(day)}</small></span>
                 </button>`).join('')}
             </div>
             <section class="timeline-card" id="timeline-card" aria-label="План дня">${buildTimelineHTML()}</section>
@@ -594,7 +592,7 @@
                     <span class="fc-duration"><span>В пути ${f.duration}</span><span>Прямой</span></span>
                     <span class="fc-end"><strong class="fc-time">${f.arrive}</strong><span class="fc-city">${airportCodes[end] || '—'}</span></span>
                   </div>
-                  <div class="fc-airline"><img class="airline-logo" src="./assets/airline-${airlineLogos[f.airline]}.svg" width="54" height="24" alt="">${f.airline}<span class="fc-bag">${f.bag}</span></div>
+                  <div class="fc-airline"><img class="airline-logo" src="./assets/airline-${airlineLogos[f.airline]}.svg" width="54" height="24" alt="">${f.airline}<span class="fc-bag">${f.bag} ${icon('bag',20)}</span></div>
                   <div class="fc-right"><strong class="fc-price">${fmt(f.price)}</strong><small class="${over ? 'over-price' : ''}">${over ? 'Выше лимита' : 'В лимите'}</small></div>
                   <div class="fc-actions"><button type="button" class="flight-choose" data-action="${outbound ? 'pick-out' : 'pick-ret'}" data-id="${f.id}" aria-pressed="${chosen}">${chosen ? 'Выбран' : 'Выбрать'}</button>
                     <button type="button" class="text-action" data-action="flight-details" data-id="${f.id}">Подробнее ${ICON.chevron}</button></div>
@@ -619,17 +617,77 @@
       }
 
       const HELP = {
-        rules: ['Правила командировок','Компания оплачивает билеты, проживание и расходы, которые предусмотрены регламентом. Сначала соберите поездку, затем отправьте её руководителю.'],
-        limits: ['Лимиты поездки','На авиабилеты туда и обратно выделено до 22 000 ₽, на отель — до 5 000 ₽ за ночь. Если подходящий вариант дороже, объясните причину перед отправкой заявки.'],
-        approval: ['Согласование и покупка','Руководитель увидит маршрут, бюджет и причину превышения. Если включена автооплата, билеты и отель оформляются после одобрения.'],
-        documents: ['Документы после поездки','Сохраните посадочные талоны и документы на расходы, которые оплатили самостоятельно. Билеты и ваучер по автоматической покупке появятся в заявке.']
-      };
+  "limits": [
+    "Ориентиры по лимитам",
+    "При выборе билетов и отеля покажем ориентиры по бюджету. Если вариант дороже, можно объяснить выбор при согласовании.",
+    "Авиабилеты по России",
+    "до 22 000 ₽ туда и обратно",
+    "Отели в Казани и регионах",
+    "до 5 000 ₽ за ночь",
+    "Отели в Москве и Петербурге",
+    "до 7 000 ₽ за ночь",
+    "Суточные",
+    "700 ₽ в день"
+  ],
+  "approval": [
+    "Согласование и покупка",
+    "Поездку согласует руководитель выбранного проекта. До его одобрения деньги не списываются.",
+    "Автопокупка",
+    "Если она включена, после одобрения оплатим билеты и отель с бюджета проекта и пришлём документы.",
+    "Цена фиксируется при покупке",
+    "Если билет подорожает больше чем на 10%, запросим подтверждение."
+  ],
+  "documents": [
+    "Документы после поездки",
+    "За билеты и отель, оформленные через сервис, документы автоматически попадут в бухгалтерию.",
+    "Посадочные талоны",
+    "Сохраните электронные копии.",
+    "Суточные",
+    "Придут на зарплатную карту за день до вылета. Отчёт по ним не нужен.",
+    "Такси до аэропорта",
+    "Оплачивается через корпоративный аккаунт."
+  ],
+  "rules": [
+    "Правила командировок",
+    "Компания оплачивает дорогу, проживание с завтраком, корпоративное такси и суточные.",
+    "Перелёт",
+    "Выбирайте экономкласс с багажом. Прямые рейсы в приоритете.",
+    "Отель",
+    "Выбирайте по времени в пути до офиса. Ориентир по цене виден при подборе.",
+    "Перенос или отмена",
+    "Заявку можно отозвать. Для обмена купленных билетов обратитесь в поддержку."
+  ],
+  "overrun": [
+    "Если поездка дороже лимита",
+    "Можно выбрать вариант дороже ориентира и объяснить, почему он подходит лучше.",
+    "Добавьте комментарий",
+    "Поле появится в панели бюджета. Руководитель увидит причину и сумму превышения.",
+    "Пример",
+    "Отель рядом с офисом позволяет успеть на утреннюю встречу и сэкономить на такси."
+  ]
+};
 
       function openDialog(title, content) {
         const dialog = document.getElementById('help-dialog');
         dialog.innerHTML = `<button class="dialog-close" type="button" data-action="close-dialog" aria-label="Закрыть">×</button>
           <h2 id="help-title">${title}</h2>${content}`;
         if (!dialog.open) dialog.showModal();
+      }
+
+      function renderHotelHeader() {
+        const out = getOutFlight();
+        const back = getRetFlight();
+        const hotel = getHotel();
+        const meeting = getMeeting();
+        return `<header class="hotel-heading"><h1>Отели в ${esc(getDestObj().locative)}</h1><p>${getShortDates()} · ${pluralNights(getNights())}</p></header>
+          <nav class="hotel-stages" aria-label="Шаги командировки">
+            <button class="hotel-stage" data-action="go-step" data-step="1"><small>${ICON.check} Маршрут</small><strong>${esc(state.origin)} → ${esc(state.dest)}</strong>
+              <span>${getShortDates()} · ${pluralNights(getNights())}${meeting.minutes !== null ? ' · В офисе к ' + meeting.short : ''}</span></button>
+            <button class="hotel-stage" data-action="go-step" data-step="2"><small>${ICON.check} Билеты</small><strong>Туда · ${out.depart}–${out.arrive}</strong><span>Обратно · ${back.depart}–${back.arrive} · 2 из 2</span></button>
+            <div class="hotel-stage current"><small>${icon('stay')} Отель</small><strong>${hotel ? esc(hotelName(hotel)) : 'Выберите отель'}</strong>
+              <span>${hotel ? esc(hotel.commuteFull) + ' · ' : ''}Заезд ${state.startDay} декабря · выезд ${state.endDay} декабря</span></div>
+            <div class="hotel-stage-rail"><span class="speed-fill" data-speed="hotel-stage" style="--progress:${hotel ? 86 : 66.66}%">${particleField}</span></div>
+          </nav>`;
       }
 
       function renderStep3() {
@@ -642,13 +700,6 @@
         const chosenHotel = getHotel();
 
         return `
-          <div class="view-head">
-            <div>
-              <h1 class="view-title">Отели в ${esc(dest.locative)}</h1>
-              <p class="view-sub">${getShortDates()} · ${pluralNights(nights)} · 1 гость</p>
-            </div>
-          </div>
-
           <div class="hotel-filters">${[['all','Все отели'],['limit','В лимите'],['near','До 10 мин от офиса'],['breakfast','С завтраком']].map(([id,label])=>`<button type="button" class="chip ${state.hotelFilter === id ? 'active' : ''}" data-action="hotel-filter" data-id="${id}" aria-pressed="${state.hotelFilter === id}">${label}</button>`).join('')}</div>
           <div class="hotels-split">
             <div class="hotel-list">
@@ -660,61 +711,22 @@
 
                 return `
                   <button type="button" class="hotel-card ${isSelected ? 'selected' : ''}" data-action="pick-hotel" data-id="${h.id}" aria-pressed="${isSelected}">
-                    ${HOTEL_PHOTOS[h.id] ? `<img class="hc-image" src="${HOTEL_PHOTOS[h.id]}" alt="">` : '<span class="hc-image" aria-hidden="true"></span>'}
-                    <span class="hc-content">
-                      <span class="hc-name">${hotelName(h)}</span>
-                      <span class="hc-sub">${h.breakfast ? 'Завтрак включён' : 'Без завтрака'}${dest.office ? ` · ${hotelMorningTiming(h)}` : ''}</span>
-                      <span class="hc-meta">
-                        <span class="hc-night">${fmt(h.night)} <small>/ ночь</small></span>
-                        <span class="hc-total">${fmt(total)} за ${pluralNights(nights)}</span>
-                      </span>
-                      <span class="status-pill ${tone}">${over > 0 ? `+${fmt(over)} к лимиту` : 'В лимите'}</span>
-                    </span>
-                    <span class="choice" aria-hidden="true"></span>
+                    <span class="hc-top"><span><strong class="hc-name">${hotelName(h)}</strong>
+                      <small class="hc-sub">${h.id === 'grand' ? '★★★★★' : '★★★★'} · ${h.breakfast ? 'Завтрак включён' : 'Без завтрака'}</small></span>
+                      <span class="hc-cost"><strong>${fmt(h.night)} / ночь</strong><small class="hc-sub">${fmt(total)} за ${pluralNights(nights)}</small></span></span>
+                    <span class="hc-bottom"><span>${dest.office ? h.commuteFull : 'Отель в городе'}</span><span class="${tone}">${over > 0 ? '+' + fmt(over) + ' к лимиту' : 'В лимите'}</span></span>
                   </button>
                 `;
               }).join('')}
             </div>
 
             <section class="map-shell" aria-label="Карта отелей">
-              <div class="map-head">
-                <strong>${dest.office ? 'Отели рядом с офисом' : 'Расположение отелей'}</strong>
-                <span>Схема, без масштаба</span>
-              </div>
               <div class="map-canvas">
-                <svg class="map-svg" viewBox="0 0 440 450" preserveAspectRatio="none" aria-hidden="true">
-                  <rect width="440" height="450" fill="#eaf0e8"/>
-                  <path d="M 0 142 L 440 158 M 0 278 L 440 250 M 60 0 L 43 450 M 168 0 L 180 450 M 285 0 L 296 450 M 382 0 L 411 450" stroke="#f9faf5" stroke-width="6" fill="none"/>
-
-                  <g stroke="#d2dccf" stroke-width="3" fill="none">
-                    <path d="M 0 110 L 440 88"/>
-                    <path d="M 0 215 L 440 232"/>
-                    <path d="M 0 330 L 440 310"/>
-                    <path d="M 105 0 L 92 450"/>
-                    <path d="M 228 0 L 240 450"/>
-                    <path d="M 352 0 L 338 450"/>
-                  </g>
-
-                  <path d="M -20 62 Q 130 18 260 80 T 470 46" fill="none" stroke="#bed6eb" stroke-width="52" stroke-linecap="round"/>
-                  <circle cx="350" cy="312" r="42" fill="#E1EFE6"/>
-                  <circle cx="88" cy="260" r="32" fill="#E1EFE6"/>
-
-                  ${dest.office ? `<circle cx="229" cy="189" r="72" fill="rgba(22, 163, 74, 0.05)" stroke="rgba(28, 29, 32, 0.14)" stroke-width="1.2" stroke-dasharray="4 4"/>
-                  <circle cx="229" cy="189" r="142" fill="none" stroke="rgba(28, 29, 32, 0.1)" stroke-width="1.2" stroke-dasharray="4 4"/>
-
-                  ${chosenHotel ? `<line
-                    x1="52%" y1="42%"
-                    x2="${activeHotel.x}%" y2="${activeHotel.y}%"
-                    stroke="#284fb5"
-                    stroke-width="3"
-                    stroke-dasharray="6 5"
-                    stroke-linecap="round"
-                  />` : ''}` : ''}
-                </svg>
-
+                <img class="map-art" src="./assets/kazan-map.svg" width="414" height="460" alt="">
+                ${dest.office && chosenHotel ? `<svg class="map-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><line
+                  x1="52" y1="42" x2="${activeHotel.x}" y2="${activeHotel.y}" stroke="#dd9315" stroke-width=".5" stroke-dasharray="1.4 1.4"/></svg>` : ''}
                 ${dest.office ? `<div class="map-office">
-                  <span class="map-office-dot"></span>
-                  <span>Офис</span>
+                  <span>Офис Т-Банка</span>
                 </div>` : ''}
 
                 ${shownHotels.map(h => {
@@ -737,12 +749,10 @@
                 }).join('')}
 
               </div>
-              <div class="map-overlay-card">
-                  <div>
-                    <div class="moc-title">${chosenHotel ? hotelName(activeHotel) : 'Выберите отель на карте'}</div>
-                    <div class="moc-sub">${chosenHotel ? (dest.office ? activeHotel.commuteShort + ' · ' : '') + fmt(activeTotal) + ' за ' + pluralNights(nights) : 'Заезд с 14:00 · выезд до 12:00'}</div>
-                  </div>
-              </div>
+              <p class="map-caption">Расположение условное</p>
+              <div class="map-overlay-card"><div><div class="moc-title">Заезд с 14:00 · выезд до 12:00</div>
+                <div class="moc-sub">${getOutFlight() && dest.office ? 'Если поедете через отель, будете там около ' + toTime(getOutFlight().arrMin + 35) + '. Хранение багажа до заезда нужно уточнить.' : 'Уточните хранение багажа, если приедете до заселения.'}</div>
+              </div></div>
             </section>
           </div>
         `;
@@ -824,11 +834,31 @@
         const flightTip = `Ориентир компании для ${esc(dest.genitive)} — до ${fmt(FLIGHT_LIMIT)} туда и обратно.`;
         const hotelTip = `Ориентир для ${esc(dest.genitive)} — до ${fmt(HOTEL_NIGHT_LIMIT)} за ночь (${fmt(hLimit)} за ${pluralNights(nights)}).`;
 
+        if (state.step === 2) return `
+          <aside class="side-col flight-side">
+            <div class="budget-card flight-budget">
+              <h2 class="bc-title">Бюджет на поездку</h2>
+              <div class="thermo-list">
+                ${renderThermostat('flight', 'Авиабилеты', fTotal, FLIGHT_LIMIT, flightTip)}
+                ${renderThermostat('hotel', 'Отель', hTotal, hLimit, hotelTip)}
+              </div>
+            </div>
+            <div class="side-total total-row"><span>Итого</span><strong>${total ? fmt(total) : 'до ' + fmt(FLIGHT_LIMIT + hLimit)}</strong></div>
+            <div class="flight-approval"><h2 class="bc-title">Согласование</h2>
+              <div class="approval-line"><span>Проект</span><button type="button" data-action="edit-project">${esc(proj.name)} ${icon('edit')}</button></div>
+              <div class="approval-line"><span>Согласует поездку</span><strong>${esc(proj.manager)}</strong></div>
+            </div>
+            <div class="side-reassurance">${icon('approval',24)} ${overrun.hasOver ? 'Есть превышение лимита' : 'Все по кайфу'}</div>
+            <button type="button" class="btn-primary btn-full" data-action="${ctaAction}" ${ctaDisabled ? 'disabled' : ''}>
+              ${!outF || !retF ? 'Выберите билеты' : ctaText}
+            </button>
+          </aside>`;
+
         return `
           <aside class="side-col">
             <div class="budget-card">
-              <h2 class="bc-title">Бюджет на поездку</h2>
-
+              <h2 class="bc-title">Бюджет и согласование</h2>
+              <div class="project-pill">${esc(proj.name)}</div>
               <div class="thermo-list">
                 ${renderThermostat('flight', 'Авиабилеты', fTotal, FLIGHT_LIMIT, flightTip)}
                 ${renderThermostat('hotel', 'Отель', hTotal, hLimit, hotelTip)}
@@ -839,16 +869,13 @@
                   <span class="total-label">Итого</span>
                   <span class="total-sum">${total > 0 ? fmt(total) : 'до ' + fmt(FLIGHT_LIMIT + hLimit)}</span>
                 </div>
-                <div class="accounting-note">
-                  Оплата: бюджет «${esc(proj.name)}» · чеки не нужны
-                </div>
+
               </div>
 
-              ${overrun.hasOver && state.step !== 5 ? `<div class="overrun-box"><strong>Выше лимита на ${fmt(overrun.totalOver)}</strong><span>Причину можно указать на сводке.</span></div>` : ''}
-              ${overrun.hasOver && state.step === 5 ? `
+              ${overrun.hasOver ? `
                 <div class="overrun-box">
-                  <div class="overrun-head">Превышение на +${fmt(overrun.totalOver)}</div>
-                  <div class="overrun-sub">Причину увидит ${esc(proj.manager)} при согласовании</div>
+                  <div class="overrun-head">Выше ориентира на ${fmt(overrun.totalOver)}</div>
+                  <div class="overrun-sub">Объясните выбор руководителю</div>
 
                   <div class="overrun-chips" id="reason-chips">
                     ${REASON_CHIPS.map((c, idx) => `
@@ -879,11 +906,11 @@
                 </div>
               ` : ''}
 
-              <div class="approval-block"><h2 class="bc-title">Согласование</h2>
+              <div class="approval-block">
                 <div class="approver-row">
-                  <span class="approver-ava">${esc(proj.initials)}</span>
+                  ${icon('manager',24)}
                   <div>
-                    <div class="approver-name">Согласует: ${esc(proj.manager)}</div>
+                    <div class="approver-name"><small>Согласует</small><br>${esc(proj.manager)}</div>
                     <div class="approver-sub ${overrun.hasOver ? 'over' : ''}">
                       ${overrun.hasOver
                         ? `Согласует поездку и превышение +${fmt(overrun.totalOver)}`
@@ -892,19 +919,19 @@
                   </div>
                 </div>
 
-                ${state.step === 5 ? `<div class="toggle-box">
+                <div class="toggle-box">
                   <div>
-                    <div class="toggle-title">Купить автоматически после одобрения</div>
+                    <div class="toggle-title">Купить после одобрения</div>
                     <div class="toggle-desc">
                       ${state.autoBuy
-                        ? 'Билеты и бронь оформятся сразу после одобрения'
+                        ? 'Оплатим с бюджета проекта'
                         : 'После одобрения вернём заявку для ручного подтверждения'}
                     </div>
                   </div>
-                  <button type="button" class="switch ${state.autoBuy ? 'on' : ''}" data-action="toggle-autobuy" role="switch" aria-checked="${state.autoBuy}" aria-label="Купить автоматически после одобрения">
+                  <button type="button" class="switch ${state.autoBuy ? 'on' : ''}" data-action="toggle-autobuy" role="switch" aria-checked="${state.autoBuy}" aria-label="Купить после одобрения">
                     <span class="switch-knob"></span>
                   </button>
-                </div>` : ''}
+                </div>
 
                 <button type="button" class="btn-primary btn-full" data-action="${ctaAction}" ${ctaDisabled ? 'disabled' : ''}>
                   ${ctaText}
@@ -926,15 +953,11 @@
         return `
           <div class="status-shell">
             <section class="status-card">
-              <div>
-                <div class="lock-pill">
-                  ${ICON.lock}
-                  <span>Билеты и отель ещё не куплены</span>
-                </div>
+              <div class="confirmation-head">
+                <span class="approval-pill">На согласовании</span>
                 <h1 class="status-h1">Заявка отправлена</h1>
-                <p class="status-note">
-                  Стоимость поездки сейчас ${fmt(total)}. Итоговая сумма зафиксируется при покупке после одобрения.
-                </p>
+                <div class="confirmation-lock">${ICON.lock}<div><strong>Билеты и отель ещё не куплены</strong>
+                  <p>Цена сейчас ${fmt(total)}. ${state.autoBuy ? 'Оплатим с бюджета проекта после одобрения.' : 'После одобрения попросим подтвердить покупку.'}</p></div></div>
               </div>
 
               <div class="tracker">
@@ -944,8 +967,8 @@
                     <div class="t-stem"></div>
                   </div>
                   <div class="t-content">
-                    <div class="t-title">Заявка отправлена</div>
-                    <div class="t-sub">Сегодня, ${esc(state.submittedTime)} · бюджет «${esc(proj.name)}»</div>
+                    <div class="t-title">Заявка создана</div>
+                    <div class="t-sub">${esc(state.origin)} → ${esc(state.dest)} · ${getShortDates()}</div>
                   </div>
                 </div>
 
@@ -955,7 +978,7 @@
                     <div class="t-stem"></div>
                   </div>
                   <div class="t-content">
-                    <div class="t-title">Согласование руководителя — ${esc(proj.manager)}</div>
+                    <div class="t-title">Согласование · ${esc(proj.manager)}</div>
                     <div class="t-sub">
                       ${overrun.hasOver
                         ? `В процессе · включая превышение +${fmt(overrun.totalOver)}`
@@ -971,11 +994,11 @@
                   </div>
                   <div class="t-content" style="padding-bottom:0;">
                     <div class="t-title muted">
-                      ${state.autoBuy ? 'Автоматическая покупка билетов и бронь отеля' : 'Ваше подтверждение и покупка вручную'}
+                      ${state.autoBuy ? 'Автоматическая покупка' : 'Ваше подтверждение и покупка вручную'}
                     </div>
                     <div class="t-sub">
                       ${state.autoBuy
-                        ? 'Оплатит компания сразу после одобрения — чеки не нужны'
+                        ? 'Пришлём билеты и ваучер после оплаты'
                         : 'После одобрения пришлём уведомление, чтобы вы проверили и подтвердили покупку'}
                     </div>
                   </div>
@@ -1003,7 +1026,7 @@
 
               <div class="status-actions">
                 <button type="button" class="btn-secondary" data-action="back-to-edit">
-                  Вернуться к редактированию
+                  Отозвать и изменить
                 </button>
                 <button type="button" class="btn-primary" data-action="new-trip">
                   Новая командировка
@@ -1059,9 +1082,10 @@
         previousScreen = screen;
         const workspaceHTML = state.step === 2 ? renderStep2() : state.step === 3 ? renderStep3() : renderReview();
         app.innerHTML = `
-          <div class="workspace-grid">
+          ${state.step === 3 ? renderHotelHeader() : ''}
+          <div class="workspace-grid ${state.step === 3 ? 'hotels-workspace' : ''}">
             <div class="main-col">
-              ${renderStepsBar()}
+              ${state.step === 3 ? '' : renderStepsBar()}
               <div class="workspace-content ${entering ? 'entering' : ''}">${workspaceHTML}</div>
             </div>
             ${renderSidebar()}
@@ -1177,10 +1201,14 @@
         const action = target.getAttribute('data-action');
 
         if (action === 'help') {
-          const [title, body] = HELP[target.dataset.id];
-          openDialog(title, '<p>' + body + '</p>');
+          const [title, body, ...items] = HELP[target.dataset.id];
+          const rows = items.filter((_, i) => i % 2 === 0).map((heading,i) =>
+            `<div><strong>${esc(heading)}</strong><p>${esc(items[i * 2 + 1])}</p></div>`).join('');
+          openDialog(esc(title), '<p class="help-intro">' + esc(body) + '</p><div class="help-rows">' + rows + '</div>');
         } else if (action === 'close-dialog') {
           document.getElementById('help-dialog').close();
+        } else if (action === 'edit-project') {
+          openDialog('Проект', '<div class="help-rows">' + PROJECTS.map(p => `<button class="pop-item" data-action="pick-project" data-val="${esc(p.name)}">${esc(p.name)}<span>${esc(p.manager)}</span></button>`).join('') + '</div>');
         } else if (action === 'edit-meeting') {
           openDialog('Время встречи', `<label class="dialog-field">К которому часу быть в офисе
             <input type="time" id="meeting-time-edit" value="${getMeeting().short.match(/^\d\d:\d\d$/) ? getMeeting().short : '10:00'}" required></label>
@@ -1236,6 +1264,7 @@
           state.openPopover = null;
           render();
         } else if (action === 'pick-project') {
+          document.getElementById('help-dialog').close();
           state.project = target.getAttribute('data-val');
           state.openPopover = null;
           render();
