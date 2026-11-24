@@ -1,17 +1,5 @@
-<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<mask id="mask0_45_695" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="1" y="2" width="22" height="20">
-<path d="M5 22H16C17.6569 22 19 20.6569 19 19V2H8C6.34315 2 5 3.34315 5 5V22ZM15.4999 8.24267L11.1766 12.8565L8.5 10C9.20333 9.24947 10.3945 9.24947 11.0978 10L11.1766 10.0841L12.9021 8.24267C13.6054 7.49207 14.7966 7.49207 15.4999 8.24267ZM15 16H9V18H13C14.1046 18 15 17.1046 15 16Z" fill-rule="evenodd" clip-rule="evenodd" fill="url(#paint0_linear_45_695)"/>
-<path opacity="0.4" d="M1 19H5V6H4C2.34315 6 1 7.34313 1 9V19Z" fill="black"/>
-<path opacity="0.4" d="M23 6H19V19H20C21.6569 19 23 17.6569 23 16V6Z" fill="black"/>
-<path opacity="0.3" d="M9 16H15C15 17.1046 14.1046 18 13 18H9V16Z" fill="black"/>
-</mask>
-<g mask="url(#mask0_45_695)">
-<path d="M0 0H24V24H0V0Z" fill="black" fill-opacity="0.4"/>
-</g>
-<defs>
-<linearGradient id="paint0_linear_45_695" x1="13.5" y1="3.5" x2="5" y2="22" gradientUnits="userSpaceOnUse">
-<stop/>
-<stop offset="1" stop-opacity="0.8"/>
-</linearGradient>
-</defs>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#7a8494">
+<path d="M5 22H16C17.6569 22 19 20.6569 19 19V2H8C6.34315 2 5 3.34315 5 5V22ZM15.4999 8.24267L11.1766 12.8565L8.5 10C9.20333 9.24947 10.3945 9.24947 11.0978 10L11.1766 10.0841L12.9021 8.24267C13.6054 7.49207 14.7966 7.49207 15.4999 8.24267ZM15 16H9V18H13C14.1046 18 15 17.1046 15 16Z" fill-rule="evenodd"/>
+<path d="M1 19H5V6H4C2.34315 6 1 7.34313 1 9V19Z" fill-rule="evenodd"/>
+<path d="M23 6H19V19H20C21.6569 19 23 17.6569 23 16V6Z" fill-rule="evenodd"/>
 </svg>

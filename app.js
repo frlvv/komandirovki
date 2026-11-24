@@ -79,9 +79,6 @@
         ['19:40', '21:15', 'Аэрофлот', 9200], ['21:10', '22:45', 'ЮТэйр', 8400]
       ]);
       const KAZAN_OFFICE = { coordinates: [55.778872, 49.129573], address: 'Спартаковская ул., 6, этаж 6' };
-      const KAZAN_PRICE_ANCHORS = {
-        office:[9,36], alt:[77,36], bilyar:[80,36], 'grand-kazan':[9,36], davydov:[44,36]
-      };
       const KAZAN_HOTELS = [
         { id: 'office', name: 'Отель IT-hotel ГАУ ИТ-парк', night: 3562.5, rating: '8,2',
           commuteShort: '≈5 мин пешком', commuteFull: '≈5 мин до офиса', leaveOffset: 10,
@@ -102,7 +99,27 @@
         { id: 'davydov', name: 'Давыдов', night: 4380,
           commuteShort: '≈15 мин пешком', commuteFull: '≈15 мин до офиса', leaveOffset: 20,
           breakfast: true, photo: 'hotel-davydov.webp', address: 'Ул. Нурсултана Назарбаева, 35а',
-          coordinates: [55.772815, 49.139025], checkIn: '14:00', checkOut: '12:00' }
+          coordinates: [55.772815, 49.139025], checkIn: '14:00', checkOut: '12:00' },
+        { id: 'suleiman', name: 'Сулейман Палас', night: 4990,
+          commuteShort: '≈10 мин пешком', commuteFull: '≈10 мин до офиса', leaveOffset: 15,
+          photo: 'hotel-suleiman.webp', address: 'Петербургская ул., 55',
+          coordinates: [55.781276, 49.134190], checkIn: '14:00', checkOut: '12:00' },
+        { id: 'usadba', name: 'Татарская усадьба', night: 4390,
+          commuteShort: '≈21 мин пешком', commuteFull: '≈21 мин до офиса', leaveOffset: 26,
+          photo: 'hotel-usadba.webp', address: 'Ул. Шигабутдина Марджани, 8',
+          coordinates: [55.780932, 49.116682], checkIn: '14:00', checkOut: '12:00' },
+        { id: 'cosmos', name: 'Cosmos Казань', night: 6150,
+          commuteShort: '≈23 мин пешком', commuteFull: '≈23 мин до офиса', leaveOffset: 28,
+          photo: 'hotel-cosmos.webp', address: 'Ул. Лесгафта, 7',
+          coordinates: [55.78696, 49.14410], checkIn: '14:00', checkOut: '12:00' },
+        { id: 'nogai', name: 'Ногай', night: 5650,
+          commuteShort: '≈26 мин пешком', commuteFull: '≈26 мин до офиса', leaveOffset: 31,
+          photo: 'hotel-nogai.webp', address: 'Профсоюзная ул., 16Б',
+          coordinates: [55.791623, 49.115219], checkIn: '15:00', checkOut: '12:00' },
+        { id: 'tasigo', name: 'Kazan Palace by TASIGO', night: 8190,
+          commuteShort: '≈13 мин пешком', commuteFull: '≈13 мин до офиса', leaveOffset: 18,
+          photo: 'hotel-tasigo.webp', address: 'Ул. Калинина, 3Б',
+          coordinates: [55.782739, 49.137720], checkIn: '15:00', checkOut: '12:00' }
       ];
 
       const HOTELS = [
@@ -546,10 +563,10 @@
             <nav class="steps-bar speed-steps" aria-label="Шаги командировки">
               ${renderJourneyFill(progress, cap)}
               ${steps.map(([stage, name, detail, disabled, preview, glyph], i) => `
-                <button class="step-card ${i <= active ? 'active' : ''} ${preview && (i < 2 || active === 2) ? 'has-choice' : ''}" type="button"
+                <button class="step-card ${i <= active ? 'active' : ''}" type="button"
                   data-action="go-step" data-step="${stage}" ${i === active ? 'aria-current="step"' : ''} ${disabled ? 'disabled' : ''}
                   ${preview ? `aria-describedby="step-peek-${stage}"` : ''}>
-                  <span class="sc-dot" aria-hidden="true">${icon(glyph, 24)}</span>
+                  <span class="sc-dot" aria-hidden="true"><span class="step-glyph ${glyph}"></span></span>
                   <span><span class="sc-label">${name}</span><span class="sc-value" title="${esc(detail)}">${esc(detail)}</span></span>
                 </button>`).join('')}
             </nav>
@@ -856,9 +873,7 @@
               ${shown.length ? shown.map(renderHotelCard).join('') : '<p class="hotel-empty">По этому фильтру отелей нет</p>'}
             </section>
             <section class="map-shell" aria-label="Карта и время заселения">
-              ${isKazan ? `<div class="map-canvas" data-kazan-map aria-label="Карта Казани с офисом Т-Банка и отелями"></div>
-                <div class="map-caption"><span>ИТ-хаб Т-Банка · ${KAZAN_OFFICE.address}</span>
-                  <a href="https://www.openstreetmap.org/?mlat=55.778872&amp;mlon=49.129573#map=17/55.7797/49.1316" target="_blank" rel="noopener">Открыть карту</a></div>` : ''}
+              ${isKazan ? '<div class="map-canvas" data-kazan-map aria-label="Карта Казани с офисом Т-Банка и отелями"></div>' : ''}
               ${renderHotelTiming(hotels.find(h => h.id === state.hotelInspectId) || getHotel())}
             </section>
           </div>`;
@@ -884,9 +899,13 @@
         });
       }
 
-      function inspectHotel(id) {
+      function inspectHotel(id, scrollToCard = false) {
         state.hotelInspectId = id;
         render();
+        if (!scrollToCard) return;
+
+        const card = document.querySelector(`[data-hotel-id="${id}"]`);
+        card?.scrollIntoView({block:'start', behavior:motionPreference.matches ? 'instant' : 'smooth'});
       }
 
       function hotelCardFrom(target) {
@@ -920,14 +939,14 @@
         }
         const L = window.L;
         if (!L) {
-          slot.innerHTML = '<p class="map-unavailable">Карта не загрузилась. Её можно открыть по ссылке ниже.</p>';
+          slot.innerHTML = '<p class="map-unavailable">Карта не загрузилась.</p>';
           return;
         }
 
         if (!kazanMap) {
           const extent = [[55.764, 49.113], [55.793, 49.149]];
           const map = L.map(slot, {
-            scrollWheelZoom:true, minZoom:11, maxZoom:19, zoomSnap:.5,
+            scrollWheelZoom:true, wheelPxPerZoomLevel:125, minZoom:11, maxZoom:19, zoomSnap:.5,
             maxBounds:[[55.71,49.05],[55.87,49.24]], maxBoundsViscosity:.8
           });
           map.attributionControl.setPrefix(false);
@@ -946,38 +965,60 @@
           }).addTo(map);
           officeMarker.bindPopup(`<strong>ИТ-хаб Т-Банка</strong><br>${KAZAN_OFFICE.address}`);
           const markers = KAZAN_HOTELS.map(hotel => {
-            const marker = L.marker(hotel.coordinates, {alt:hotel.name,title:hotel.name});
-            marker.bindTooltip(esc(hotel.name), {direction:'top', offset:[0,-23]});
-            marker.on('click', () => inspectHotel(hotel.id));
+            const marker = L.marker(hotel.coordinates, {
+              alt:hotel.name,
+              icon:L.divIcon({className:'hotel-map-pin',iconSize:[76,30]})
+            });
+            marker.bindTooltip(esc(hotel.name), {direction:'top', className:'hotel-map-tooltip'});
+            marker.on('click', () => inspectHotel(hotel.id, true));
             marker.on('mouseover', () => highlightHotel(hotel.id));
             marker.on('mouseout', () => highlightHotel(null));
             return {hotel, marker};
           });
           map.fitBounds([KAZAN_OFFICE.coordinates, ...KAZAN_HOTELS.map(hotel => hotel.coordinates)], {padding:[52,34],maxZoom:16});
           kazanMap = {slot,map,markers};
+          map.on('zoomend resize', placeKazanPrices);
         } else {
           slot.replaceWith(kazanMap.slot);
           kazanMap.map.invalidateSize({pan:false});
         }
 
         kazanMap.markers.forEach(({hotel, marker}) => {
-          const selected = state.hotelId === hotel.id;
-          const map = kazanMap.map;
           const visible = Boolean(app.querySelector(`[data-hotel-id="${hotel.id}"]`));
-          if (!visible) {
-            marker.remove();
-            return;
-          }
+          if (visible && !kazanMap.map.hasLayer(marker)) marker.addTo(kazanMap.map);
+          if (!visible) marker.remove();
+        });
+        placeKazanPrices();
+      }
+
+      const hotelPriceOffsets = [
+        [0,0], [-42,0], [42,0], [0,-33], [0,33],
+        [-42,-33], [42,-33], [-42,33], [42,33], [0,-66], [0,66], [-78,0], [78,0]
+      ];
+
+      function placeKazanPrices() {
+        if (!kazanMap) return;
+        const {map, markers} = kazanMap;
+        const office = map.project(KAZAN_OFFICE.coordinates);
+        const used = [{x:office.x,y:office.y}];
+        for (const {hotel, marker} of markers) {
+          if (!map.hasLayer(marker)) continue;
+          const selected = state.hotelId === hotel.id;
+          const over = getHotelTotal(hotel) > getHotelLimitTotal();
+          const location = map.project(hotel.coordinates);
+          const offset = hotelPriceOffsets.find(([x,y]) =>
+            used.every(point => Math.abs(point.x - location.x - x) >= 80 || Math.abs(point.y - location.y - y + 23) >= 33)
+          ) || hotelPriceOffsets[0];
+          const [x,y] = offset;
+          used.push({x:location.x + x,y:location.y + y - 23});
           marker.setIcon(L.divIcon({
             className:'hotel-map-pin',
-            html:`<span class="map-price ${getHotelTotal(hotel) > getHotelLimitTotal() ? 'over' : 'in'}${selected ? ' selected' : ''}">${fmt(getHotelTotal(hotel))}</span>`,
-            iconSize:[88,30], iconAnchor:KAZAN_PRICE_ANCHORS[hotel.id]
+            html:`<span class="map-price ${over ? 'over' : 'in'}${selected ? ' selected' : ''}">${fmt(getHotelTotal(hotel))}</span>`,
+            iconSize:[76,30], iconAnchor:[38 - x,38 - y], tooltipAnchor:[x,y - 38]
           }));
-          if (!map.hasLayer(marker)) marker.addTo(map);
-          marker.setZIndexOffset(selected ? 100 : 0);
           marker.getElement().setAttribute('aria-label', `${hotel.name}, ${fmt(getHotelTotal(hotel))}`);
           marker.getElement().classList.toggle('inspected', state.hotelInspectId === hotel.id);
-        });
+        }
         highlightHotel(hotelHoverId);
       }
 
@@ -1468,6 +1509,8 @@
         let current = reducedMotion ? target : start;
         let frame;
         let width = 0;
+        const glyphs = [...app.querySelectorAll('.step-glyph')];
+        let samples = [];
 
         function draw(now) {
           // Use the supplied low-pass interpolation so stage changes glide into place.
@@ -1500,6 +1543,9 @@
             for (; x < W; x++) pixels[(y * W + x) * 4 + 3] = tailAlpha;
           }
           context.putImageData(image, 0, 0);
+          glyphs.forEach((glyph, index) => {
+            glyph.classList.toggle('on-fill', pixels[samples[index]] >= 155);
+          });
           layer.style.setProperty('--journey-stop', `${width * visiblePosition / 3}px`);
         }
 
@@ -1510,6 +1556,12 @@
 
         function resize() {
           width = layer.clientWidth;
+          const left = layer.getBoundingClientRect().left;
+          samples = glyphs.map(glyph => {
+            const box = glyph.getBoundingClientRect();
+            const x = Math.round((box.left + box.width / 2 - left) * W / Math.max(1,width));
+            return (Math.floor(H / 2) * W + Math.max(0, Math.min(W - 1, x))) * 4 + 3;
+          });
           draw(performance.now());
         }
 
