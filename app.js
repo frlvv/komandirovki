@@ -105,15 +105,15 @@
           photo: 'hotel-suleiman.webp', address: 'Петербургская ул., 55',
           coordinates: [55.781276, 49.134190], checkIn: '14:00', checkOut: '12:00' },
         { id: 'usadba', name: 'Татарская усадьба', night: 4390,
-          commuteShort: '≈21 мин пешком', commuteFull: '≈21 мин до офиса', leaveOffset: 26,
+          commuteMode: 'transport', commuteShort: '≈20 мин на транспорте', commuteFull: '≈20 мин до офиса', leaveOffset: 25,
           photo: 'hotel-usadba.webp', address: 'Ул. Шигабутдина Марджани, 8',
           coordinates: [55.780932, 49.116682], checkIn: '14:00', checkOut: '12:00' },
         { id: 'cosmos', name: 'Cosmos Казань', night: 6150,
-          commuteShort: '≈23 мин пешком', commuteFull: '≈23 мин до офиса', leaveOffset: 28,
+          commuteMode: 'transport', commuteShort: '≈25 мин на транспорте', commuteFull: '≈25 мин до офиса', leaveOffset: 30,
           photo: 'hotel-cosmos.webp', address: 'Ул. Лесгафта, 7',
           coordinates: [55.78696, 49.14410], checkIn: '14:00', checkOut: '12:00' },
         { id: 'nogai', name: 'Ногай', night: 5650,
-          commuteShort: '≈26 мин пешком', commuteFull: '≈26 мин до офиса', leaveOffset: 31,
+          commuteMode: 'transport', commuteShort: '≈25 мин на транспорте', commuteFull: '≈25 мин до офиса', leaveOffset: 30,
           photo: 'hotel-nogai.webp', address: 'Профсоюзная ул., 16Б',
           coordinates: [55.791623, 49.115219], checkIn: '15:00', checkOut: '12:00' },
         { id: 'tasigo', name: 'Kazan Palace by TASIGO', night: 8190,
@@ -566,7 +566,9 @@
                 <button class="step-card ${i <= active ? 'active' : ''}" type="button"
                   data-action="go-step" data-step="${stage}" ${i === active ? 'aria-current="step"' : ''} ${disabled ? 'disabled' : ''}
                   ${preview ? `aria-describedby="step-peek-${stage}"` : ''}>
-                  <span class="sc-dot" aria-hidden="true"><span class="step-glyph ${glyph}"></span></span>
+                  <span class="sc-dot step-glyph" aria-hidden="true">${icon(glyph,24)}
+                    ${i > 0 ? `<span class="step-glyph-variant">${icon(i === 1 ? 'progress-stay-filled' : 'progress-review-active',24)}</span>` : ''}
+                  </span>
                   <span><span class="sc-label">${name}</span><span class="sc-value" title="${esc(detail)}">${esc(detail)}</span></span>
                 </button>`).join('')}
             </nav>
@@ -583,22 +585,42 @@
       const weekdays = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
       const dayLabel = day => day + ' декабря, ' + weekdays[new Date(2026, 11, day).getDay()];
 
+      function renderTimelineHead(outbound, office, status, tone, meeting) {
+        const showMeeting = outbound && office && (state.timelineCollapsed || !status);
+        const statusIcon = tone === 'late' ? icon('budget-alert',16) : tone === 'ok' ? ICON.check : '';
+        return `<div class="tl-top">
+          <button class="tl-collapse-toggle" type="button" data-action="toggle-timeline" aria-expanded="${!state.timelineCollapsed}" aria-controls="journey-chart">
+            <span class="tl-title">Таймлайн</span>
+            <span class="tl-status ${tone}">${statusIcon} ${status || 'Наведитесь на рейс'}</span>
+          </button>
+          ${showMeeting ? `<button class="meeting-tag tl-meeting-tag" data-action="edit-meeting" data-time-anchor="timeline" aria-haspopup="dialog" aria-expanded="false" type="button">${meeting === null ? 'Указать встречу' : 'Встреча ' + toTime(meeting)} ${icon('edit')}</button>` : ''}
+          ${outbound && office ? `<button class="tl-hotel-switch" type="button" data-action="toggle-hotel-stop" role="switch" aria-checked="${state.hotelStop}">
+            <span class="switch ${state.hotelStop ? 'on' : ''}"><span class="switch-knob"></span></span>Завезти вещи в отель
+          </button>` : ''}
+          <span class="tl-chevron" aria-hidden="true">${icon('timeline-chevron',14)}</span>
+        </div>`;
+      }
+
       function buildTimelineHTML() {
         const outbound = state.flightTab === 'out';
         const list = outbound ? OUTBOUND_FLIGHTS : RETURN_FLIGHTS;
-        const flight = list.find(item => item.id === state.hoverFlightId) ||
-          (outbound ? getOutFlight() : getRetFlight()) || list[outbound ? 1 : 0];
+        const flight = list.find(item => item.id === state.hoverFlightId) || (outbound ? getOutFlight() : getRetFlight());
         const meeting = getMeeting().minutes;
         const office = getDestObj().office;
+        if (!flight) return renderTimelineHead(outbound, office, '', 'neutral', meeting) +
+          `<div id="journey-chart" class="tl-body tl-empty-body" ${state.timelineCollapsed ? 'hidden' : ''}></div>`;
+
         const arrival = getArrival(flight);
         const leave = flight.depMin - AIRPORT_MINUTES - TAXI_MINUTES;
         const hasMeeting = outbound && office && meeting !== null;
-        const balance = (hasMeeting ? meeting - arrival : leave - WORK_END);
-        const start = outbound ? Math.min(420, Math.floor(flight.depMin / 30) * 30) : 8 * 60;
-        const end = outbound ? Math.max(630, Math.ceil((Math.max(arrival, hasMeeting ? meeting : 0) + 15) / 30) * 30)
-          : Math.max(22 * 60, Math.ceil((flight.arrMin + 15) / 60) * 60);
+        const balance = hasMeeting ? meeting - arrival : leave - WORK_END;
+        const nearbyMeeting = hasMeeting && meeting >= flight.depMin - 60 && meeting <= arrival + 120;
+        const start = outbound
+          ? Math.max(0, Math.floor((Math.min(flight.depMin, nearbyMeeting ? meeting : flight.depMin) - 15) / 30) * 30)
+          : Math.max(WORK_START, Math.floor((Math.min(leave, WORK_END) - 60) / 30) * 30);
+        const end = Math.ceil(((outbound ? Math.max(arrival, nearbyMeeting ? meeting : arrival) : flight.arrMin) + 15) / 30) * 30;
         const span = end - start;
-        const tickStep = span > 300 ? (outbound ? 60 : 120) : 30;
+        const tickStep = span > 300 ? 60 : 30;
         const tickTimes = [];
         for (let t = start; t <= end; t += tickStep) tickTimes.push(t);
         const pos = value => Math.min(100, Math.max(0, 100 * (value - start) / span));
@@ -621,33 +643,23 @@
             : [])]
           : [[WORK_START,Math.min(leave, WORK_END),'work','Рабочий день'],[leave,leave+TAXI_MINUTES,'taxi','Такси'],
             [leave+TAXI_MINUTES,flight.depMin,'airport','Аэропорт'],flightSegment];
-        const closeMarkers = hasMeeting && Math.abs(pos(meeting) - pos(arrival)) < 16;
-        const markerLeft = hasMeeting ? Math.min(pos(meeting) + (closeMarkers && arrival <= meeting ? 5 : 0), 92) : 0;
+        const closeMarkers = nearbyMeeting && Math.abs(pos(meeting) - pos(arrival)) < 16;
+        const markerLeft = nearbyMeeting ? Math.min(pos(meeting) + (closeMarkers && arrival <= meeting ? 5 : 0), 92) : 0;
 
         return `
-          <div class="tl-top">
-            <button class="tl-collapse-toggle" type="button" data-action="toggle-timeline" aria-expanded="${!state.timelineCollapsed}" aria-controls="journey-chart">
-              <span class="tl-title">Таймлайн</span>
-              <span class="tl-status ${(hasMeeting || !outbound) && balance < 0 ? 'late' : 'ok'}">${(hasMeeting || !outbound) && balance < 0 ? icon('budget-alert',16) : ICON.check} ${status}</span>
-            </button>
-            ${state.timelineCollapsed && outbound && office ? `<button class="meeting-tag tl-meeting-tag" data-action="edit-meeting" data-time-anchor="timeline" aria-haspopup="dialog" aria-expanded="false" type="button">${hasMeeting ? 'Встреча ' + clock(meeting) : 'Указать встречу'} ${icon('edit')}</button>` : ''}
-            ${outbound && office ? `<button class="tl-hotel-switch" type="button" data-action="toggle-hotel-stop" role="switch" aria-checked="${state.hotelStop}">
-              <span class="switch ${state.hotelStop ? 'on' : ''}"><span class="switch-knob"></span></span>Завезти вещи в отель
-            </button>` : ''}
-            <span class="tl-chevron" aria-hidden="true">${icon('timeline-chevron',14)}</span>
-          </div>
+          ${renderTimelineHead(outbound, office, status, (hasMeeting || !outbound) && balance < 0 ? 'late' : 'ok', meeting)}
           <div class="tl-body" id="journey-chart" ${state.timelineCollapsed ? 'hidden' : ''}><div class="journey-chart" aria-label="${flight.depart}–${flight.arrive}, ${status}">
             <div class="chart-badges">
               ${outbound && office ? `<span class="arrival-tag ${closeMarkers ? (arrival <= meeting ? 'edge-left' : 'edge-right') : ''}" style="left:${pos(arrival)}%">≈${clock(arrival)}</span>` : ''}
-              ${hasMeeting ? `<button class="meeting-tag ${closeMarkers && arrival > meeting ? 'edge-left' : ''}" data-action="edit-meeting" data-time-anchor="timeline" aria-haspopup="dialog" aria-expanded="false" type="button"
+              ${nearbyMeeting ? `<button class="meeting-tag ${closeMarkers && arrival > meeting ? 'edge-left' : ''}" data-action="edit-meeting" data-time-anchor="timeline" aria-haspopup="dialog" aria-expanded="false" type="button"
                 style="left:${markerLeft}%">Встреча ${clock(meeting)} ${icon('edit')}</button>` :
-                outbound && office ? '<button type="button" class="meeting-tag meeting-add" data-action="edit-meeting" data-time-anchor="timeline" aria-haspopup="dialog" aria-expanded="false">Указать встречу</button>' : ''}
+                outbound && office ? `<button type="button" class="meeting-tag meeting-add" data-action="edit-meeting" data-time-anchor="timeline" aria-haspopup="dialog" aria-expanded="false">${meeting === null ? 'Указать встречу' : 'Встреча ' + clock(meeting)}</button>` : ''}
             </div>
             <div class="journey-track">
               ${tickTimes.map(time => `<i class="journey-rule" style="left:${pos(time)}%"></i>`).join('')}
               ${segments.filter(([from,to]) => to > from).map(([from,to,tone,label]) => `<span class="journey-segment seg-${tone}" style="left:${pos(from)}%;width:${pos(to)-pos(from)}%">${label}</span>`).join('')}
               ${outbound && office ? `<i class="arrival-dot" style="left:${pos(arrival)}%"></i>` : ''}
-              ${hasMeeting ? `<i class="meeting-line" style="left:${pos(meeting)}%"></i>` : ''}
+              ${nearbyMeeting ? `<i class="meeting-line" style="left:${pos(meeting)}%"></i>` : ''}
             </div>
             <div class="journey-axis" aria-hidden="true">${tickTimes.map((time,i) => `<span style="left:${pos(time)}%" class="${i === 0 ? 'first' : i === tickTimes.length - 1 && pos(time) > 95 ? 'last' : ''}">${clock(time)}</span>`).join('')}</div>
           </div>
@@ -813,6 +825,7 @@
         const total = getHotelTotal(hotel);
         const excess = Math.max(0, total - getHotelLimitTotal());
         const inspected = state.hotelInspectId === hotel.id;
+        const byTransport = hotel.commuteMode === 'transport' || hotel.commuteShort.includes('на транспорте');
         return `<article class="hotel-card${selected ? ' selected' : ''}${inspected ? ' inspected' : ''}" data-hotel-id="${hotel.id}">
           <img class="hc-photo" src="./assets/${hotel.photo}" width="349" height="210" alt="" loading="lazy">
           <button type="button" class="hotel-inspect-hit" data-action="inspect-hotel" data-id="${hotel.id}"
@@ -822,7 +835,7 @@
               ${hotel.rating ? `<span class="hc-rating" aria-label="Оценка ${hotel.rating} из 10">${hotel.rating}</span>` : ''}
             </div>
             <ul class="hc-features">
-              ${getDestObj().office ? `<li class="hc-walk">${icon('walk')} ${esc(hotel.commuteFull)}</li>` : ''}
+              ${getDestObj().office ? `<li class="${byTransport ? 'hc-transit' : 'hc-walk'}" title="${esc(hotel.commuteShort)}">${icon(byTransport ? 'transport' : 'walk')} ${esc(hotel.commuteFull)}</li>` : ''}
               ${hotel.breakfast ? `<li>${icon('breakfast')} Завтрак</li>` : ''}
               ${hotel.freeCancel ? `<li>${icon('cancel-free')} Бесплатная отмена</li>` : ''}
             </ul>
@@ -888,15 +901,15 @@
           card.classList.toggle('map-highlighted', card.dataset.hotelId === id);
         });
         if (!kazanMap) return;
-        kazanMap.markers.forEach(({hotel, marker}) => {
-          const hovered = hotel.id === id;
-          const element = marker.getElement();
-          element?.classList.toggle('map-highlighted', hovered);
-          marker.setZIndexOffset(hovered ? 1000 : state.hotelId === hotel.id ? 500 : 0);
-          if (element && hovered) marker.openTooltip();
+        for (const {hotels, marker} of kazanMap.markers) {
+          const hovered = hotels.some(hotel => hotel.id === id);
+          const selected = hotels.some(hotel => hotel.id === state.hotelId);
+          marker.getElement()?.classList.toggle('map-highlighted', hovered);
+          marker.setZIndexOffset(hovered ? 1000 : selected ? 500 : 0);
+          if (hovered && hotels.length === 1) marker.openTooltip();
           else marker.closeTooltip();
-          if (hovered && pan) kazanMap.map.panInside(hotel.coordinates, {padding:[50,44],animate:true});
-        });
+          if (hovered && pan) kazanMap.map.panInside(marker.getLatLng(), {padding:[50,44],animate:true});
+        }
       }
 
       function inspectHotel(id, scrollToCard = false) {
@@ -964,61 +977,64 @@
             alt:'ИТ-хаб Т-Банка', title:'ИТ-хаб Т-Банка'
           }).addTo(map);
           officeMarker.bindPopup(`<strong>ИТ-хаб Т-Банка</strong><br>${KAZAN_OFFICE.address}`);
-          const markers = KAZAN_HOTELS.map(hotel => {
-            const marker = L.marker(hotel.coordinates, {
-              alt:hotel.name,
-              icon:L.divIcon({className:'hotel-map-pin',iconSize:[76,30]})
-            });
-            marker.bindTooltip(esc(hotel.name), {direction:'top', className:'hotel-map-tooltip'});
-            marker.on('click', () => inspectHotel(hotel.id, true));
-            marker.on('mouseover', () => highlightHotel(hotel.id));
-            marker.on('mouseout', () => highlightHotel(null));
-            return {hotel, marker};
-          });
-          map.fitBounds([KAZAN_OFFICE.coordinates, ...KAZAN_HOTELS.map(hotel => hotel.coordinates)], {padding:[52,34],maxZoom:16});
-          kazanMap = {slot,map,markers};
+          map.fitBounds([KAZAN_OFFICE.coordinates, ...KAZAN_HOTELS.map(hotel => hotel.coordinates)], {padding:[54,48],maxZoom:16});
+          kazanMap = {slot,map,markers:[],hotels:[]};
           map.on('zoomend resize', placeKazanPrices);
         } else {
           slot.replaceWith(kazanMap.slot);
           kazanMap.map.invalidateSize({pan:false});
         }
 
-        kazanMap.markers.forEach(({hotel, marker}) => {
-          const visible = Boolean(app.querySelector(`[data-hotel-id="${hotel.id}"]`));
-          if (visible && !kazanMap.map.hasLayer(marker)) marker.addTo(kazanMap.map);
-          if (!visible) marker.remove();
-        });
+        const visible = new Set([...app.querySelectorAll('[data-hotel-id]')].map(card => card.dataset.hotelId));
+        kazanMap.hotels = KAZAN_HOTELS.filter(hotel => visible.has(hotel.id));
         placeKazanPrices();
       }
 
-      const hotelPriceOffsets = [
-        [0,0], [-42,0], [42,0], [0,-33], [0,33],
-        [-42,-33], [42,-33], [-42,33], [42,33], [0,-66], [0,66], [-78,0], [78,0]
-      ];
+      function clusterHotelPrices(map, hotels) {
+        const groups = [];
+        for (const hotel of hotels) {
+          const point = map.project(hotel.coordinates);
+          const group = groups.find(group => Math.abs(point.x - group.point.x) < 76 && Math.abs(point.y - group.point.y) < 34);
+          if (group) group.hotels.push(hotel);
+          else groups.push({point, hotels:[hotel]});
+        }
+        return groups;
+      }
 
       function placeKazanPrices() {
         if (!kazanMap) return;
-        const {map, markers} = kazanMap;
-        const office = map.project(KAZAN_OFFICE.coordinates);
-        const used = [{x:office.x,y:office.y}];
-        for (const {hotel, marker} of markers) {
-          if (!map.hasLayer(marker)) continue;
-          const selected = state.hotelId === hotel.id;
-          const over = getHotelTotal(hotel) > getHotelLimitTotal();
-          const location = map.project(hotel.coordinates);
-          const offset = hotelPriceOffsets.find(([x,y]) =>
-            used.every(point => Math.abs(point.x - location.x - x) >= 80 || Math.abs(point.y - location.y - y + 23) >= 33)
-          ) || hotelPriceOffsets[0];
-          const [x,y] = offset;
-          used.push({x:location.x + x,y:location.y + y - 23});
-          marker.setIcon(L.divIcon({
-            className:'hotel-map-pin',
-            html:`<span class="map-price ${over ? 'over' : 'in'}${selected ? ' selected' : ''}">${fmt(getHotelTotal(hotel))}</span>`,
-            iconSize:[76,30], iconAnchor:[38 - x,38 - y], tooltipAnchor:[x,y - 38]
-          }));
-          marker.getElement().setAttribute('aria-label', `${hotel.name}, ${fmt(getHotelTotal(hotel))}`);
-          marker.getElement().classList.toggle('inspected', state.hotelInspectId === hotel.id);
-        }
+        const {map, hotels} = kazanMap;
+        kazanMap.markers.forEach(({marker}) => marker.remove());
+        kazanMap.markers = clusterHotelPrices(map, hotels).map(({hotels}) => {
+          const [first] = hotels;
+          const isCluster = hotels.length > 1;
+          const zoom = () => {
+            const bounds = L.latLngBounds(hotels.map(hotel => hotel.coordinates));
+            const zoomTo = map.getBoundsZoom(bounds, false, L.point(76,80));
+            map.setView(bounds.getCenter(), Math.min(map.getMaxZoom(), Math.max(zoomTo, map.getZoom() + 1)));
+          };
+          const price = Math.min(...hotels.map(getHotelTotal));
+          const over = price > getHotelLimitTotal();
+          const selected = !isCluster && state.hotelId === first.id;
+          const coordinates = isCluster ? L.latLngBounds(hotels.map(hotel => hotel.coordinates)).getCenter() : first.coordinates;
+          const marker = L.marker(coordinates, {
+            icon: L.divIcon({
+              className:`hotel-map-pin${isCluster ? ' hotel-map-cluster' : ''}`,
+              html:`<span class="map-price ${over ? 'over' : 'in'}${selected ? ' selected' : ''}">${isCluster ? 'от ' : ''}${fmt(price)}</span>`,
+              iconSize:[76,30], iconAnchor:[38,36], tooltipAnchor:[0,-36]
+            })
+          }).addTo(map);
+          const element = marker.getElement();
+          element.setAttribute('aria-label', isCluster ? `${hotels.length} ${hotels.length <= 4 ? 'отеля' : 'отелей'}, от ${fmt(price)}` : `${first.name}, ${fmt(price)}`);
+          element.classList.toggle('inspected', !isCluster && state.hotelInspectId === first.id);
+          marker.on('click', isCluster ? zoom : () => inspectHotel(first.id, true));
+          if (!isCluster) {
+            marker.bindTooltip(esc(first.name), {direction:'top', className:'hotel-map-tooltip'});
+            marker.on('mouseover', () => highlightHotel(first.id));
+            marker.on('mouseout', () => highlightHotel(null));
+          }
+          return {hotels, marker};
+        });
         highlightHotel(hotelHoverId);
       }
 
@@ -1044,7 +1060,7 @@
             <div class="thermo-top">
               <div class="thermo-label-wrap">
                 <span class="thermo-name">${label}</span>
-                <button type="button" class="info-btn ${isOpen ? 'open' : ''}" data-action="toggle-tip" data-tip="${id}" aria-expanded="${isOpen}" aria-describedby="budget-tip-${id}" aria-label="Подробнее об ориентире: ${label}">i</button>
+                <button type="button" class="info-btn ${isOpen ? 'open' : ''}" data-action="toggle-tip" data-tip="${id}" aria-expanded="${isOpen}" aria-describedby="budget-tip-${id}" aria-label="Подробнее об ориентире: ${label}">${icon('budget-info',14)}</button>
                 <div class="info-tooltip" id="budget-tip-${id}" role="tooltip" data-popover="true">${tooltipText}</div>
               </div>
               <span class="thermo-nums ${current ? '' : 'empty'} ${current > limit ? 'over' : ''}">${budgetAmount(current, limit)}</span>
@@ -1107,7 +1123,7 @@
           ctaAction = 'go-step-2';
           ctaDisabled = state.step === 2;
         } else if (state.step === 2 || !hotel) {
-          ctaText = 'Выбрать отель';
+          ctaText = state.step === 2 ? 'Перейти к отелям' : 'Выберите отель';
           ctaAction = 'go-step-3';
           ctaDisabled = state.step === 3;
         } else if (state.step === 3) {
@@ -1120,6 +1136,7 @@
 
         if (state.step === 2 || state.step === 3) return `
           <aside class="side-col flight-side">
+            <div class="flight-side-group">
             <div class="budget-card flight-budget">
               <h2 class="bc-title">Бюджет на поездку</h2>
               <div class="thermo-list">
@@ -1130,13 +1147,16 @@
               </div>
             </div>
             <div class="side-total total-row"><span>Итого</span><strong data-flight-total>${total ? fmt(total) : 'до ' + fmt(FLIGHT_LIMIT + hLimit)}</strong></div>
+            </div>
+            <div class="flight-side-group">
             <div class="flight-approval">
               <h2 class="bc-title">Согласование</h2>
               <div class="approval-line"><span>Проект</span>${renderProjectTrigger(proj, '')}</div>
               <div class="approval-line"><span>Согласует поездку</span><strong>${esc(proj.manager)}</strong></div>
             </div>
             <div class="side-reassurance${overrun.hasOver ? ' over' : ''}">
-              ${overrun.hasOver ? `${icon('budget-warning',24)}<span>Пояснение превышения добавите в сводке.</span>` : `${icon('approval',24)}<span>Всё в порядке</span>`}
+              ${overrun.hasOver ? `${icon('budget-alert',24)}<span>Потребуется пояснение превышения лимита</span>` : `${icon('approval',24)}<span>Все по кайфу</span>`}
+            </div>
             </div>
             <button type="button" class="btn-primary btn-full" data-action="${ctaAction}" ${ctaDisabled ? 'disabled' : ''}>
               ${!outF || !retF ? 'Выберите билеты' : ctaText}
@@ -1769,7 +1789,8 @@
 
       }
 
-      document.addEventListener('pointerover', e => {
+      document.addEventListener('pointermove', e => {
+        if (e.target.closest('.journey-step-shell')) previewFlight(null);
         const flight = e.target.closest('[data-hover-flight]');
         if (e.pointerType !== 'touch' && flight) previewFlight(flight);
       });
@@ -1786,6 +1807,10 @@
           previewFlight(document.querySelector('[data-hover-flight]:hover'));
         }
       });
+      document.addEventListener('pointerleave', e => {
+        if (e.target instanceof Element && e.target.matches('.flight-list')) previewFlight(null);
+      }, true);
+
       document.addEventListener('keydown', e => {
         if (e.key === 'Escape' && timePicker) {
           closeTimePicker(true);

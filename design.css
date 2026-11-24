@@ -209,8 +209,8 @@ h1,h2,h3,.brand-title,.fc-time,.fc-price,.total-sum{font-family:var(--display)}
 .review-reason-hint{display:flex;align-items:flex-start;gap:7px;margin-top:12px;padding:10px;border-radius:10px;background:#fff8e8;color:#705528;font-size:12px;line-height:16px}
 .review-reason-hint .ui-icon{flex:none;width:18px;height:18px;object-fit:contain}
 .flight-approval .review-reason-hint{margin-top:10px}
-.side-col.flight-side .budget-card{gap:14px}
-.side-col.flight-side .btn-full{margin-top:2px}
+.side-col.flight-side .budget-card{gap:16px}
+
 .status-shell{max-width:700px}
 .status-card{padding:28px}
 .status-h1{font-size:38px}
@@ -247,14 +247,11 @@ h1,h2,h3,.brand-title,.fc-time,.fc-price,.total-sum{font-family:var(--display)}
 .trip-meta span+span::before{content:none}
 .ui-icon{display:inline-block;flex:none;vertical-align:middle;object-fit:contain}
 .speed-steps .sc-dot,.speed-steps .step-card.active .sc-dot{background:none}
-.step-glyph{
-  display:block;width:min(24px,100%);height:min(24px,100%);background-color:#a0a7b2;
-  mask:var(--step-glyph) center/contain no-repeat;transition:background-color .18s ease;
-}
-.step-glyph.progress-plane{--step-glyph:url('./assets/progress-plane.svg?v=vector')}
-.step-glyph.progress-stay{--step-glyph:url('./assets/progress-stay.svg?v=vector');background-color:#3479ef}
-.step-glyph.progress-review{--step-glyph:url('./assets/progress-review.svg?v=vector')}
-.step-card .step-glyph.on-fill{background-color:#fff}
+.speed-steps .step-glyph{position:relative}
+.step-glyph>img,.step-glyph-variant{grid-area:1/1;pointer-events:none}
+.step-glyph-variant{display:none}
+.step-glyph.on-fill:has(.step-glyph-variant)>img{visibility:hidden}
+.step-glyph.on-fill .step-glyph-variant{display:grid;place-items:center}
 .speed-steps .step-card.active:not(:has(.step-glyph.on-fill)) :is(.sc-label,.sc-value){color:var(--ink-secondary)}
 .dir-tab .ui-icon{transform:none}
 .dir-tab:nth-child(2) .ui-icon{transform:scaleX(-1)}
@@ -315,8 +312,9 @@ h1,h2,h3,.brand-title,.fc-time,.fc-price,.total-sum{font-family:var(--display)}
 .fc-connector::after{right:-7px}
 .flight-card:hover .fc-connector,.flight-card:focus-visible .fc-connector,.flight-card:focus-within .fc-connector,.flight-card.selected .fc-connector{visibility:hidden}
 .fc-bag{margin-left:auto}
-.flight-side{display:grid;gap:4px}
-.flight-budget,.side-total,.flight-approval,.side-reassurance{background:white;box-shadow:var(--soft-shadow);border-radius:16px;padding:16px}
+.flight-side{display:grid;gap:20px}
+.flight-side-group{display:grid;gap:4px;filter:drop-shadow(0 0 20px #0000000f)}
+.flight-budget,.side-total,.flight-approval,.side-reassurance{background:white;box-shadow:none;border-radius:16px;padding:16px}
 .flight-budget{border-radius:20px 20px 8px 8px}
 .side-total{min-height:59px;border-radius:8px 8px 20px 20px;align-items:center;color:#8a8a8a}
 .side-total strong,.approval-line strong{font-weight:400;color:#111}
@@ -324,11 +322,12 @@ h1,h2,h3,.brand-title,.fc-time,.fc-price,.total-sum{font-family:var(--display)}
 .approval-line{display:flex;justify-content:space-between;gap:6px;align-items:center;color:#8a8a8a;line-height:18px}
 .approval-line button{color:#111;display:flex;align-items:center;gap:6px}
 .side-reassurance{display:flex;align-items:center;gap:8px;border-radius:8px 8px 20px 20px;min-height:56px}
-.flight-side>.btn-primary{margin-top:16px;min-height:58px;border-radius:20px}
-.flight-side>.btn-primary:disabled{opacity:1}
-.side-reassurance.over{background:#fff7e7;color:#775519}
+.flight-side>.btn-primary{margin:0;min-height:58px;border-radius:20px;background:#ffdd2d;color:#111;font-weight:400}
+.flight-side>.btn-primary:disabled{opacity:1;background:#fff0a9;color:#999}
+.side-reassurance.over{min-height:70px;align-items:flex-start;background:#fff;color:#111}
+.side-reassurance span{line-height:19px}
 .side-reassurance .ui-icon{flex:none}
-.budget-overline{color:#94621a;font-size:13px;line-height:18px;margin-top:-4px}
+.budget-overline{background:#fff5c0;color:#111;font-size:16px;line-height:18px;min-height:42px;padding:12px;border-radius:16px;margin:0}
 .bc-title{font-size:24px;line-height:30px;font-weight:500}
 .thermo-nums,.thermo-name,.total-label{font-weight:400}
 .thermo-nums.empty,.limit-muted{color:#979797;font-weight:400}
@@ -355,7 +354,7 @@ h1,h2,h3,.brand-title,.fc-time,.fc-price,.total-sum{font-family:var(--display)}
 .hotel-empty{color:var(--ink-secondary);padding:12px 0}
 .map-shell{position:sticky;top:24px;min-width:0;box-shadow:none;border-radius:0}
 .map-canvas{height:auto;aspect-ratio:1;border-radius:20px;isolation:isolate;background:#f1f2f3}
-.map-canvas :is(.leaflet-tile-pane,.leaflet-image-layer){filter:grayscale(1) contrast(.74) brightness(1.13)}
+.map-canvas :is(.leaflet-tile-pane,.leaflet-image-layer){filter:saturate(.88) contrast(.88) brightness(1.075)}
 .map-canvas .leaflet-control-attribution{font-family:var(--font);font-size:11px}
 .map-unavailable{padding:16px;color:var(--ink-secondary)}
 .hotel-map-office{display:grid;place-items:center;background:#ffdd2d;border-radius:50%;box-shadow:0 2px 6px #18294432}
@@ -454,9 +453,10 @@ h1,h2,h3,.brand-title,.fc-time,.fc-price,.total-sum{font-family:var(--display)}
 @media(max-width:740px),(min-width:821px) and (max-width:980px){.hotels-split{grid-template-columns:1fr}.map-shell{position:static}.map-shell:has([data-kazan-map]){grid-row:1}.map-canvas{aspect-ratio:1.25}}
 
 /* The direction switcher, timeline and results share one surface rhythm. */
-.flight-module{isolation:isolate}
-.flight-module .dir-tab.active,.flight-module .timeline-card{box-shadow:inset 0 0 0 1px #edf0f3}
-.flight-module .flight-list{background:#fff;box-shadow:0 0 0 1px #eceff3,0 10px 28px #2636560e}
+.flight-module{isolation:isolate;filter:drop-shadow(0 0 20px #0000000f)}
+.flight-module .dir-tab.active,.flight-module .timeline-card,.flight-module .flight-list{background:#fff;box-shadow:none}
+.flight-module .flight-card{border-radius:20px}
+.flight-module .flight-card:not(.selected):is(:hover,:focus-visible,:focus-within){background:#f5f5f5}
 .flight-module .flight-card:is(:hover,:focus-visible,:focus-within,.selected) .fc-connector{visibility:visible}
 .flight-module .flight-card.selected .fc-connector,
 .flight-module .flight-card.selected .fc-connector::before,
@@ -469,14 +469,18 @@ h1,h2,h3,.brand-title,.fc-time,.fc-price,.total-sum{font-family:var(--display)}
 .tl-chevron .ui-icon{transform:rotate(180deg);transition:transform .2s ease}
 .tl-top:has([aria-expanded="true"]) .tl-chevron .ui-icon{transform:none}
 .tl-status .ui-icon{width:16px;height:16px;flex:none}
-.flight-module .flight-list{padding:16px 8px}
+.flight-module .flight-list{padding:0 8px 8px}
 .flight-module .flight-card{padding-inline:12px}
 .flight-side .flight-budget{gap:16px}
 .flight-side .thermo-list{gap:16px}
-.flight-side .side-total{min-height:50px;padding:16px;border-radius:8px 8px 20px 20px;margin:0}
-.flight-side .flight-approval{margin-top:16px;border-radius:20px 20px 8px 8px;gap:16px}
+.flight-side .thermo-top{line-height:20px;align-items:center}
+.flight-side .info-btn{display:grid;place-items:center;background:none;padding:0;width:14px;height:14px}
+.flight-side .thermo-nums.over{color:#ad9200}
+.flight-side .thermo-fill-in{background-color:#42bd37}
+.flight-side .side-total{min-height:50px;line-height:18px;padding:16px;border-radius:8px 8px 20px 20px;margin:0}
+.flight-side .flight-approval{margin:0;border-radius:20px 20px 8px 8px;gap:16px}
 .flight-side .side-reassurance{min-height:56px;border-radius:8px 8px 20px 20px}
-.flight-side .thermo-track{margin-top:6px;border-radius:999px;overflow:hidden;
+.flight-side .thermo-track{margin-top:8px;height:8px;border-radius:999px;overflow:hidden;
   mask-image:linear-gradient(90deg,#000 0 75%,transparent 75% calc(75% + 4px),#000 calc(75% + 4px) 100%)}
 .flight-side .thermo-fill-in,.flight-side .thermo-fill-over{border-radius:0}
 .flight-side .thermo-tick{display:none}
@@ -501,6 +505,10 @@ h1,h2,h3,.brand-title,.fc-time,.fc-price,.total-sum{font-family:var(--display)}
 .hc-features{margin:16px 0 0;gap:8px}
 .hc-features li{gap:6px;padding:5px 10px 6px 8px;min-height:29px;line-height:18px;border-radius:999px;font-size:14px;background:#f5f5f5}
 .hc-features .hc-walk{color:#42bd37;background:#ecf8eb}
+.hc-features .hc-transit{color:#d4b200;background:#d4b2001f}
+.tl-status.neutral{color:#666b74;background:#f2f3f5}
+.tl-empty-body{min-height:80px}
+.hotel-map-cluster .map-price{min-width:75px;text-align:center}
 .hc-bottom{border-top:0}
 .hc-cost strong{line-height:30px}
 .hc-cost .hc-sub{margin:0;color:var(--ink);line-height:18px}
@@ -527,15 +535,19 @@ h1,h2,h3,.brand-title,.fc-time,.fc-price,.total-sum{font-family:var(--display)}
   position:absolute;top:calc(100% + 8px);width:min(325px,45%);z-index:5;padding:6px;
   border-radius:16px;background:var(--surface);box-shadow:0 8px 32px #28334824;
   visibility:hidden;opacity:0;transform:translateY(-3px);pointer-events:none;
-  transition:opacity .18s ease,transform .18s ease,visibility .18s;
+  transition:opacity .15s ease,transform .15s ease;
 }
 .step-peek[data-peek="2"]{left:0}
 .step-peek[data-peek="3"]{left:50%;transform:translate(-50%,-3px)}
 .step-peek[data-peek="5"]{right:0}
-.journey-step-shell:has([data-step="2"]:is(:hover,:focus-visible)) [data-peek="2"],
-.journey-step-shell:has([data-step="3"]:is(:hover,:focus-visible)) [data-peek="3"],
-.journey-step-shell:has([data-step="5"]:is(:hover,:focus-visible)) [data-peek="5"]{visibility:visible;opacity:1;transform:translateY(0)}
-.journey-step-shell:has([data-step="3"]:is(:hover,:focus-visible)) [data-peek="3"]{transform:translateX(-50%)}
+.journey-step-shell:has([data-step="2"]:hover) [data-peek="2"],
+.journey-step-shell:has([data-step="3"]:hover) [data-peek="3"],
+.journey-step-shell:has([data-step="5"]:hover) [data-peek="5"],
+.journey-step-shell:not(:has(.step-card:hover)):has([data-step="2"]:focus-visible) [data-peek="2"],
+.journey-step-shell:not(:has(.step-card:hover)):has([data-step="3"]:focus-visible) [data-peek="3"],
+.journey-step-shell:not(:has(.step-card:hover)):has([data-step="5"]:focus-visible) [data-peek="5"]{visibility:visible;opacity:1;transform:translateY(0)}
+.journey-step-shell:has([data-step="3"]:hover) [data-peek="3"],
+.journey-step-shell:not(:has(.step-card:hover)):has([data-step="3"]:focus-visible) [data-peek="3"]{transform:translateX(-50%)}
 .step-peek-row{
   display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;
   padding:8px;border-radius:10px;background:var(--surface-muted);font-size:13px
@@ -552,6 +564,7 @@ h1,h2,h3,.brand-title,.fc-time,.fc-price,.total-sum{font-family:var(--display)}
 @media(max-width:620px){
   .trip-heading h1{font-size:clamp(31px, 8vw, 40px);line-height:1.12}
   .speed-steps .step-card{padding-inline:8px;gap:5px}
+  .step-glyph img{width:20px;height:20px}
   .speed-steps .sc-label,.speed-steps .sc-value{line-height:15px}
   .dir-tabs,.dir-tab{height:auto;min-height:64px}
   .dir-tab{padding-inline:9px;gap:6px}
