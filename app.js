@@ -79,6 +79,9 @@
         ['19:40', '21:15', 'Аэрофлот', 9200], ['21:10', '22:45', 'ЮТэйр', 8400]
       ]);
       const KAZAN_OFFICE = { coordinates: [55.778872, 49.129573], address: 'Спартаковская ул., 6, этаж 6' };
+      const KAZAN_PRICE_ANCHORS = {
+        office:[9,36], alt:[77,36], bilyar:[80,36], 'grand-kazan':[9,36], davydov:[44,36]
+      };
       const KAZAN_HOTELS = [
         { id: 'office', name: 'Отель IT-hotel ГАУ ИТ-парк', night: 3562.5, rating: '8,2',
           commuteShort: '≈5 мин пешком', commuteFull: '≈5 мин до офиса', leaveOffset: 10,
@@ -87,7 +90,19 @@
         { id: 'alt', name: 'Студия 3 Тат Хаус', night: 1473.5, rating: '7,9',
           commuteShort: '≈3 мин пешком', commuteFull: '≈3 мин до офиса', leaveOffset: 8,
           breakfast: false, freeCancel: true, photo: 'hotel-tat-house.webp',
-          address: 'Спартаковская ул., 35', coordinates: [55.779752, 49.130740], checkIn: '14:00', checkOut: '12:00' }
+          address: 'Спартаковская ул., 35', coordinates: [55.779752, 49.130740], checkIn: '14:00', checkOut: '12:00' },
+        { id: 'bilyar', name: 'Биляр Палас', night: 5840, rating: '8,7',
+          commuteShort: '≈11 мин пешком', commuteFull: '≈11 мин до офиса', leaveOffset: 16,
+          breakfast: true, photo: 'hotel-bilyar.webp', address: 'Ул. Островского, 61',
+          coordinates: [55.784083, 49.124886], checkIn: '15:00', checkOut: '12:00', luggage: true },
+        { id: 'grand-kazan', name: 'Grand Hotel Kazan', night: 6900,
+          commuteShort: '≈14 мин пешком', commuteFull: '≈14 мин до офиса', leaveOffset: 19,
+          photo: 'hotel-grand-kazan.webp', address: 'Петербургская ул., 1',
+          coordinates: [55.785962, 49.125194], checkIn: '14:00', checkOut: '12:00', luggage: true },
+        { id: 'davydov', name: 'Давыдов', night: 4380,
+          commuteShort: '≈15 мин пешком', commuteFull: '≈15 мин до офиса', leaveOffset: 20,
+          breakfast: true, photo: 'hotel-davydov.webp', address: 'Ул. Нурсултана Назарбаева, 35а',
+          coordinates: [55.772815, 49.139025], checkIn: '14:00', checkOut: '12:00' }
       ];
 
       const HOTELS = [
@@ -122,9 +137,10 @@
           outFlightId: null,
           retFlightId: null,
           hoverFlightId: null,
-          timelineCollapsed: false,
+          timelineCollapsed: true,
           hotelStop: false,
           hotelFilter: 'all',
+          hotelInspectId: null,
 
           hotelId: null, // auto-selected to 'office' on first open of Step 3
 
@@ -483,17 +499,41 @@
         </div>`;
       }
 
+      function renderStepPreview(stage, content) {
+        if (!content) return '';
+        return `<div class="step-peek" id="step-peek-${stage}" data-peek="${stage}">${content}</div>`;
+      }
+
+      function renderFlightPreview(flight, outbound) {
+        if (!flight) return '';
+        const route = outbound ? [state.origin, state.dest] : [state.dest, state.origin];
+        return `<div class="step-peek-row">
+          ${icon('flight', 20)}
+          <div><strong>${esc(route.join(' – '))}</strong><small>${flight.depart}–${flight.arrive} · ${esc(flight.airline)}</small></div>
+          <b>${fmt(flight.price)}</b>
+        </div>`;
+      }
+
       function renderStepsBar() {
         const out = getOutFlight();
         const back = getRetFlight();
         const hotel = getHotel();
         const active = state.step === 5 ? 2 : state.step === 3 ? 1 : 0;
         const cap = active + 1;
-        const progress = active ? cap : out && back ? 1 : out ? .96 : .90;
+        const progress = active ? cap : out && back ? 1 : out ? .985 : .955;
+        const flightPreview = renderFlightPreview(out, true) + renderFlightPreview(back, false);
+        const hotelPreview = hotel ? `<div class="step-peek-row">
+          <img class="step-peek-photo" src="./assets/${esc(hotel.photo)}" alt="">
+          <div><strong>${esc(hotelName(hotel))}</strong><small>${pluralNights(getNights())}</small></div><b>${fmt(getHotelTotal(hotel))}</b>
+        </div>` : '';
+        const summaryPreview = out && back && hotel ? `<div class="step-peek-row">
+          ${icon('progress-review', 20)}
+          <div><strong>Итого за поездку</strong><small>Согласует ${esc(getProjectObj().manager)}</small></div><b>${fmt(getTripTotal())}</b>
+        </div>` : '';
         const steps = [
-          [2, 'Билеты', [out, back].filter(Boolean).map(flight => `${flight.depart}–${flight.arrive}`).join(', ') || 'Туда и обратно', false],
-          [3, 'Проживание', hotel ? hotelName(hotel) : 'Не выбрано', !out || !back],
-          [5, 'Сводка', 'Проверьте перед отправкой', !out || !back || !hotel]
+          [2, 'Билеты', [out, back].filter(Boolean).map(flight => `${flight.depart}–${flight.arrive}`).join(', ') || 'Туда и обратно', false, flightPreview, 'progress-plane'],
+          [3, 'Проживание', hotel ? hotelName(hotel) : 'Не выбрано', !out || !back, hotelPreview, 'progress-stay'],
+          [5, 'Сводка', 'Проверьте перед отправкой', !out || !back || !hotel, summaryPreview, 'progress-review']
         ];
 
         return `
@@ -502,15 +542,19 @@
             <div class="trip-meta"><span>${icon('route')} ${esc(state.origin)} – ${esc(state.dest)}</span>
               <span>${icon('date')} ${getShortDates()}</span><span>${icon('stay')} ${pluralNights(getNights())}</span></div>
           </div>
-          <nav class="steps-bar speed-steps" aria-label="Шаги командировки">
-            ${renderJourneyFill(progress, cap)}
-            ${steps.map(([stage,name,detail,disabled],i) => `
-              <button class="step-card ${i <= active ? 'active' : ''}" type="button"
-                data-action="go-step" data-step="${stage}" ${i === active ? 'aria-current="step"' : ''} ${disabled ? 'disabled' : ''}>
-                <span class="sc-dot" aria-hidden="true">${icon(['progress-plane', 'progress-stay', 'progress-review'][i], 24)}</span>
-                <span><span class="sc-label">${name === 'Проживание' ? 'Проживание' : name}</span><span class="sc-value" title="${esc(detail)}">${esc(detail)}</span></span>
-              </button>`).join('')}
-          </nav>`;
+          <div class="journey-step-shell">
+            <nav class="steps-bar speed-steps" aria-label="Шаги командировки">
+              ${renderJourneyFill(progress, cap)}
+              ${steps.map(([stage, name, detail, disabled, preview, glyph], i) => `
+                <button class="step-card ${i <= active ? 'active' : ''} ${preview && (i < 2 || active === 2) ? 'has-choice' : ''}" type="button"
+                  data-action="go-step" data-step="${stage}" ${i === active ? 'aria-current="step"' : ''} ${disabled ? 'disabled' : ''}
+                  ${preview ? `aria-describedby="step-peek-${stage}"` : ''}>
+                  <span class="sc-dot" aria-hidden="true">${icon(glyph, 24)}</span>
+                  <span><span class="sc-label">${name}</span><span class="sc-value" title="${esc(detail)}">${esc(detail)}</span></span>
+                </button>`).join('')}
+            </nav>
+            ${steps.map(([stage, , , , preview]) => renderStepPreview(stage, preview)).join('')}
+          </div>`;
       }
 
       function getArrival(flight) {
@@ -562,18 +606,18 @@
             [leave+TAXI_MINUTES,flight.depMin,'airport','Аэропорт'],flightSegment];
         const closeMarkers = hasMeeting && Math.abs(pos(meeting) - pos(arrival)) < 16;
         const markerLeft = hasMeeting ? Math.min(pos(meeting) + (closeMarkers && arrival <= meeting ? 5 : 0), 92) : 0;
-        const date = outbound ? state.startDay : state.endDay;
 
         return `
           <div class="tl-top">
             <button class="tl-collapse-toggle" type="button" data-action="toggle-timeline" aria-expanded="${!state.timelineCollapsed}" aria-controls="journey-chart">
-              <span class="tl-title">Таймлайн на ${date} декабря</span>
-              <span class="tl-status ${(hasMeeting || !outbound) && balance < 0 ? 'late' : 'ok'}">${(hasMeeting || !outbound) && balance < 0 ? '!' : ICON.check} ${status}</span>
+              <span class="tl-title">Таймлайн</span>
+              <span class="tl-status ${(hasMeeting || !outbound) && balance < 0 ? 'late' : 'ok'}">${(hasMeeting || !outbound) && balance < 0 ? icon('budget-alert',16) : ICON.check} ${status}</span>
             </button>
-            ${state.timelineCollapsed && hasMeeting ? `<button class="meeting-tag tl-meeting-tag" data-action="edit-meeting" data-time-anchor="timeline" aria-haspopup="dialog" aria-expanded="false" type="button">Встреча ${clock(meeting)} ${icon('edit')}</button>` : ''}
+            ${state.timelineCollapsed && outbound && office ? `<button class="meeting-tag tl-meeting-tag" data-action="edit-meeting" data-time-anchor="timeline" aria-haspopup="dialog" aria-expanded="false" type="button">${hasMeeting ? 'Встреча ' + clock(meeting) : 'Указать встречу'} ${icon('edit')}</button>` : ''}
             ${outbound && office ? `<button class="tl-hotel-switch" type="button" data-action="toggle-hotel-stop" role="switch" aria-checked="${state.hotelStop}">
               <span class="switch ${state.hotelStop ? 'on' : ''}"><span class="switch-knob"></span></span>Завезти вещи в отель
             </button>` : ''}
+            <span class="tl-chevron" aria-hidden="true">${icon('timeline-chevron',14)}</span>
           </div>
           <div class="tl-body" id="journey-chart" ${state.timelineCollapsed ? 'hidden' : ''}><div class="journey-chart" aria-label="${flight.depart}–${flight.arrive}, ${status}">
             <div class="chart-badges">
@@ -751,21 +795,23 @@
         const selected = state.hotelId === hotel.id;
         const total = getHotelTotal(hotel);
         const excess = Math.max(0, total - getHotelLimitTotal());
-        return `<article class="hotel-card${selected ? ' selected' : ''}">
-          <img class="hc-photo" src="./assets/${hotel.photo}" width="349" height="210" alt="">
+        const inspected = state.hotelInspectId === hotel.id;
+        return `<article class="hotel-card${selected ? ' selected' : ''}${inspected ? ' inspected' : ''}" data-hotel-id="${hotel.id}">
+          <img class="hc-photo" src="./assets/${hotel.photo}" width="349" height="210" alt="" loading="lazy">
+          <button type="button" class="hotel-inspect-hit" data-action="inspect-hotel" data-id="${hotel.id}"
+            aria-label="Условия заселения: ${esc(hotelName(hotel))}" aria-controls="hotel-stay-details"></button>
           <div class="hc-details">
             <div class="hc-top"><h2 class="hc-name">${esc(hotelName(hotel))}</h2>
               ${hotel.rating ? `<span class="hc-rating" aria-label="Оценка ${hotel.rating} из 10">${hotel.rating}</span>` : ''}
             </div>
-            ${hotel.address ? `<p class="hc-address">${esc(hotel.address)}</p>` : ''}
             <ul class="hc-features">
-              ${getDestObj().office ? `<li>${icon('walk')} ${esc(hotel.commuteFull)}</li>` : ''}
+              ${getDestObj().office ? `<li class="hc-walk">${icon('walk')} ${esc(hotel.commuteFull)}</li>` : ''}
               ${hotel.breakfast ? `<li>${icon('breakfast')} Завтрак</li>` : ''}
               ${hotel.freeCancel ? `<li>${icon('cancel-free')} Бесплатная отмена</li>` : ''}
             </ul>
           </div>
           <div class="hc-bottom">
-            <div class="hc-cost"><strong>${fmt(total)}</strong><small class="hc-sub">За ${pluralNights(getNights())} · <span class="${excess ? 'over' : 'in'}">${excess ? 'Выше лимита' : 'В лимите'}</span></small></div>
+            <div class="hc-cost"><strong aria-label="${fmt(total)} за ${pluralNights(getNights())}">${fmt(total)}</strong><small class="hc-sub">${excess ? 'Выше лимита' : 'В лимите'}</small></div>
             <button type="button" class="flight-choose hotel-choose" data-action="pick-hotel" data-id="${hotel.id}"
               aria-label="${selected ? 'Выбран' : 'Выбрать'}: ${esc(hotelName(hotel))}" aria-pressed="${selected}">${selected ? 'Выбран' : 'Выбрать'}</button>
           </div>
@@ -773,19 +819,21 @@
       }
 
       function renderHotelTiming(hotel) {
-        if (!hotel) return '<div class="map-overlay-card"><p>Выберите отель, чтобы увидеть время заезда и выезда</p></div>';
+        if (!hotel) return '<div class="map-overlay-card" id="hotel-stay-details" aria-live="polite"><p>Нажмите на отель, чтобы посмотреть время заезда и условия хранения багажа.</p></div>';
         const checkIn = hotel.checkIn || '14:00';
         const checkOut = hotel.checkOut || '12:00';
         const flight = getOutFlight();
-        const stopAtHotel = flight && state.hotelStop;
-        const arrival = stopAtHotel ? flight.arrMin + 35 : null;
-        const isEarly = arrival !== null && arrival < minutes(checkIn);
-        return `<div class="map-overlay-card">
+        const arrival = flight && state.hotelStop ? flight.arrMin + 35 : null;
+        const early = arrival !== null && arrival < minutes(checkIn);
+        const luggage = hotel.luggage ? 'Можно оставить вещи до заселения.' : 'Хранение вещей до заселения нужно уточнить у отеля.';
+        return `<div class="map-overlay-card" id="hotel-stay-details" aria-live="polite">
+          <h3 class="hotel-inspect-title">${esc(hotelName(hotel))}</h3>
+          ${hotel.address ? `<p class="hotel-inspect-address">${esc(hotel.address)}</p>` : ''}
           <dl class="hotel-stay-times">
             <div><dt>Заезд</dt><dd>${state.startDay} декабря с ${checkIn}</dd></div>
             <div><dt>Выезд</dt><dd>${state.endDay} декабря до ${checkOut}</dd></div>
           </dl>
-          ${isEarly ? `<p class="moc-sub">Будете у отеля около ${toTime(arrival)}. ${hotel.luggage ? 'Вещи можно оставить до заселения.' : 'Уточните, можно ли оставить вещи до заселения.'}</p>` : ''}
+          <p class="moc-sub">${early ? `Будете у отеля около ${toTime(arrival)}. ` : ''}${luggage}</p>
         </div>`;
       }
 
@@ -811,18 +859,63 @@
               ${isKazan ? `<div class="map-canvas" data-kazan-map aria-label="Карта Казани с офисом Т-Банка и отелями"></div>
                 <div class="map-caption"><span>ИТ-хаб Т-Банка · ${KAZAN_OFFICE.address}</span>
                   <a href="https://www.openstreetmap.org/?mlat=55.778872&amp;mlon=49.129573#map=17/55.7797/49.1316" target="_blank" rel="noopener">Открыть карту</a></div>` : ''}
-              ${renderHotelTiming(getHotel())}
+              ${renderHotelTiming(hotels.find(h => h.id === state.hotelInspectId) || getHotel())}
             </section>
           </div>`;
       }
 
       let kazanMap = null;
+      let hotelHoverId = null;
+
+      function highlightHotel(id, pan = false) {
+        hotelHoverId = id;
+        document.querySelectorAll('[data-hotel-id]').forEach(card => {
+          card.classList.toggle('map-highlighted', card.dataset.hotelId === id);
+        });
+        if (!kazanMap) return;
+        kazanMap.markers.forEach(({hotel, marker}) => {
+          const hovered = hotel.id === id;
+          const element = marker.getElement();
+          element?.classList.toggle('map-highlighted', hovered);
+          marker.setZIndexOffset(hovered ? 1000 : state.hotelId === hotel.id ? 500 : 0);
+          if (element && hovered) marker.openTooltip();
+          else marker.closeTooltip();
+          if (hovered && pan) kazanMap.map.panInside(hotel.coordinates, {padding:[50,44],animate:true});
+        });
+      }
+
+      function inspectHotel(id) {
+        state.hotelInspectId = id;
+        render();
+      }
+
+      function hotelCardFrom(target) {
+        return target?.closest?.('[data-hotel-id]');
+      }
+
+      document.addEventListener('pointerover', event => {
+        const card = hotelCardFrom(event.target);
+        if (event.pointerType !== 'touch' && card && card !== hotelCardFrom(event.relatedTarget)) highlightHotel(card.dataset.hotelId, true);
+      });
+      document.addEventListener('pointerout', event => {
+        const card = hotelCardFrom(event.target);
+        if (card && card !== hotelCardFrom(event.relatedTarget)) highlightHotel(null);
+      });
+      document.addEventListener('focusin', event => {
+        const card = hotelCardFrom(event.target);
+        if (card) highlightHotel(card.dataset.hotelId, true);
+      });
+      document.addEventListener('focusout', event => {
+        const card = hotelCardFrom(event.target);
+        if (card && card !== hotelCardFrom(event.relatedTarget)) highlightHotel(null);
+      });
 
       function updateHotelMap(app) {
         const slot = app.querySelector('[data-kazan-map]');
         if (!slot) {
           kazanMap?.map.remove();
           kazanMap = null;
+          hotelHoverId = null;
           return;
         }
         const L = window.L;
@@ -832,27 +925,35 @@
         }
 
         if (!kazanMap) {
-          const extent = [[55.7768, 49.1255], [55.7824, 49.1375]];
-          const map = L.map(slot, {scrollWheelZoom:false, minZoom:16, maxZoom:19, maxBounds:extent});
+          const extent = [[55.764, 49.113], [55.793, 49.149]];
+          const map = L.map(slot, {
+            scrollWheelZoom:true, minZoom:11, maxZoom:19, zoomSnap:.5,
+            maxBounds:[[55.71,49.05],[55.87,49.24]], maxBoundsViscosity:.8
+          });
           map.attributionControl.setPrefix(false);
-          L.imageOverlay('./assets/kazan-map.svg?v=osm', extent, {
+          const fallback = L.imageOverlay('./assets/kazan-map-wide.webp', extent, {
             attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           }).addTo(map);
+          const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            minZoom:11, maxZoom:19, updateWhenIdle:true
+          });
+          tiles.once('tileload', () => fallback.setOpacity(0));
+          tiles.on('tileerror', () => fallback.setOpacity(1));
+          tiles.addTo(map);
           const officeMarker = L.marker(KAZAN_OFFICE.coordinates, {
-            icon: L.divIcon({className:'hotel-map-office', html:icon('logo',24), iconSize:[34,34], iconAnchor:[17,17]}),
+            icon: L.divIcon({className:'hotel-map-office', html:icon('map-bank',36), iconSize:[36,36], iconAnchor:[18,18]}),
             alt:'ИТ-хаб Т-Банка', title:'ИТ-хаб Т-Банка'
           }).addTo(map);
           officeMarker.bindPopup(`<strong>ИТ-хаб Т-Банка</strong><br>${KAZAN_OFFICE.address}`);
           const markers = KAZAN_HOTELS.map(hotel => {
             const marker = L.marker(hotel.coordinates, {alt:hotel.name,title:hotel.name});
-            marker.on('click', () => {
-              state.hotelId = hotel.id;
-              state.reasonError = false;
-              render();
-            });
+            marker.bindTooltip(esc(hotel.name), {direction:'top', offset:[0,-23]});
+            marker.on('click', () => inspectHotel(hotel.id));
+            marker.on('mouseover', () => highlightHotel(hotel.id));
+            marker.on('mouseout', () => highlightHotel(null));
             return {hotel, marker};
           });
-          map.fitBounds([KAZAN_OFFICE.coordinates, ...KAZAN_HOTELS.map(hotel => hotel.coordinates)], {padding:[55,48],maxZoom:17});
+          map.fitBounds([KAZAN_OFFICE.coordinates, ...KAZAN_HOTELS.map(hotel => hotel.coordinates)], {padding:[52,34],maxZoom:16});
           kazanMap = {slot,map,markers};
         } else {
           slot.replaceWith(kazanMap.slot);
@@ -862,20 +963,22 @@
         kazanMap.markers.forEach(({hotel, marker}) => {
           const selected = state.hotelId === hotel.id;
           const map = kazanMap.map;
-          const visible = state.hotelFilter !== 'breakfast' || hotel.breakfast;
+          const visible = Boolean(app.querySelector(`[data-hotel-id="${hotel.id}"]`));
           if (!visible) {
             marker.remove();
             return;
           }
           marker.setIcon(L.divIcon({
             className:'hotel-map-pin',
-            html:`<span class="${selected ? 'selected' : ''}">${fmt(getHotelTotal(hotel))}</span>`,
-            iconSize:[88,30], iconAnchor:[44,36]
+            html:`<span class="map-price ${getHotelTotal(hotel) > getHotelLimitTotal() ? 'over' : 'in'}${selected ? ' selected' : ''}">${fmt(getHotelTotal(hotel))}</span>`,
+            iconSize:[88,30], iconAnchor:KAZAN_PRICE_ANCHORS[hotel.id]
           }));
           if (!map.hasLayer(marker)) marker.addTo(map);
           marker.setZIndexOffset(selected ? 100 : 0);
           marker.getElement().setAttribute('aria-label', `${hotel.name}, ${fmt(getHotelTotal(hotel))}`);
+          marker.getElement().classList.toggle('inspected', state.hotelInspectId === hotel.id);
         });
+        highlightHotel(hotelHoverId);
       }
 
       const limitPosition = 75;
@@ -1335,12 +1438,15 @@
 
       let journeyPosition = 0;
       let stopJourneyProgress = () => {};
+      let setJourneyTarget = null;
+      let journeyBackTimer = 0;
 
       function animateJourneyProgress(app) {
         const layer = app.querySelector('[data-journey-progress]');
         if (!layer) return;
 
-        const target = Number(layer.dataset.journeyProgress);
+        let target = Number(layer.dataset.journeyProgress);
+        setJourneyTarget = next => { target = next; };
         const cap = Number(layer.dataset.journeyCap);
         const canvas = layer.querySelector('.journey-progress-canvas');
         const context = canvas.getContext('2d', {alpha:true});
@@ -1369,11 +1475,15 @@
           draw.lastNow = now;
           if (reducedMotion) current = target;
           else current += (target - current) * (1 - Math.exp(-delta / 160));
+          if (Math.abs(target - current) < .001) current = target;
           journeyPosition = current;
 
           const t = reducedMotion ? 0 : now * 0.00080;
           const visiblePosition = Math.min(current, cap);
           const limit = Math.max(0, visiblePosition) * W / 3;
+          const completion = Math.max(0, Math.min(1, (visiblePosition - 2.84) / .16));
+          const fullFill = completion * completion * (3 - 2 * completion);
+          const tailAlpha = Math.round(fullFill * 255);
           for (let y = 0; y < H; y++) {
             const v = y / H;
             const edge = limit - 14
@@ -1385,9 +1495,9 @@
             for (; x < W && x < edge; x++) {
               const q = Math.max(0, Math.min(1, (edge - x) / spread));
               const alpha = q * q * (3 - 2 * q);
-              pixels[(y * W + x) * 4 + 3] = Math.round(alpha * 255);
+              pixels[(y * W + x) * 4 + 3] = Math.round((alpha * (1 - fullFill) + fullFill) * 255);
             }
-            for (; x < W; x++) pixels[(y * W + x) * 4 + 3] = 0;
+            for (; x < W; x++) pixels[(y * W + x) * 4 + 3] = tailAlpha;
           }
           context.putImageData(image, 0, 0);
           layer.style.setProperty('--journey-stop', `${width * visiblePosition / 3}px`);
@@ -1470,7 +1580,30 @@
         };
       }
 
+      function navigateJourneyStep(next) {
+        clearTimeout(journeyBackTimer);
+        const commit = () => {
+          if (next === 3) enterStep3();
+          else {
+            state.step = next;
+            state.openPopover = null;
+            state.infoTip = null;
+          }
+          render();
+          window.scrollTo({ top: 0, behavior: motionPreference.matches ? 'instant' : 'smooth' });
+        };
+        const nextCap = next === 2 ? 1 : 2;
+        if (next > 1 && next < state.step && !motionPreference.matches && setJourneyTarget && journeyPosition > nextCap + .025) {
+          setJourneyTarget(nextCap);
+          journeyBackTimer = setTimeout(commit, 520);
+          return;
+        }
+        commit();
+      }
+
       function render() {
+        clearTimeout(journeyBackTimer);
+        setJourneyTarget = null;
         stopJourneyProgress();
         stopJourneyProgress = () => {};
         closeTimePicker();
@@ -1620,6 +1753,7 @@
         state.retFlightId = null;
         state.hoverFlightId = null;
         state.hotelId = null;
+        state.hotelInspectId = null;
         state.hotelStop = false;
         state.hotelFilter = 'all';
         state.reason = '';
@@ -1671,6 +1805,8 @@
         } else if (action === 'toggle-timeline') {
           state.timelineCollapsed = !state.timelineCollapsed;
           render();
+        } else if (action === 'inspect-hotel') {
+          inspectHotel(target.dataset.id);
         } else if (action === 'hotel-filter') {
           state.hotelFilter = target.dataset.id;
           render();
@@ -1750,30 +1886,13 @@
           if (next > 1 && !isStep1Complete()) return;
           if (next >= 3 && (!getOutFlight() || !getRetFlight())) return;
           if (next === 5 && !getHotel()) return;
-          if (next === 3) {
-            enterStep3();
-          } else {
-            state.step = next;
-            state.openPopover = null;
-            state.infoTip = null;
-          }
-          render();
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          navigateJourneyStep(next);
         } else if (action === 'go-step-2') {
-          state.step = 2;
-          render();
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          navigateJourneyStep(2);
         } else if (action === 'go-step-3') {
-          if (!getOutFlight() || !getRetFlight()) return;
-          enterStep3();
-          render();
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          if (getOutFlight() && getRetFlight()) navigateJourneyStep(3);
         } else if (action === 'go-step-5') {
-          if (getOutFlight() && getRetFlight() && getHotel()) {
-            state.step = 5;
-            render();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }
+          if (getOutFlight() && getRetFlight() && getHotel()) navigateJourneyStep(5);
         } else if (action === 'flight-tab') {
           const tab = target.getAttribute('data-tab');
           if (tab === 'ret' && !state.outFlightId) return;
@@ -1794,6 +1913,7 @@
           render();
         } else if (action === 'pick-hotel') {
           state.hotelId = target.getAttribute('data-id');
+          state.hotelInspectId = state.hotelId;
           state.reasonError = false;
           render();
         } else if (action === 'toggle-tip') {

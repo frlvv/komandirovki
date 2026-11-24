@@ -66,8 +66,8 @@ h1,h2,h3,.brand-title,.fc-time,.fc-price,.total-sum{font-family:var(--display)}
 .speed-meter{width:var(--progress);overflow:hidden;position:relative;isolation:isolate;will-change:width}
 .speed-meter::after{content:"";position:absolute;top:0;bottom:0;right:0;width:24px;background:linear-gradient(90deg,transparent,#ffffff47);pointer-events:none}
 .speed-particles{position:absolute;inset:0;pointer-events:none;overflow:hidden}
-.speed-particles::before,.speed-particles::after{content:"";position:absolute;inset:-12% -110px -12% -110px;transform:translateX(-110px);background-image:radial-gradient(ellipse 4px 1px at 15px 6px,#ffffff96 86%,transparent),radial-gradient(ellipse 9px 1px at 64px 20px,#cbdcffb3 85%,transparent),radial-gradient(ellipse 2px 1px at 108px 33px,#fff9 88%,transparent);background-size:124px 43px;animation:stream .65s linear infinite;opacity:.72}
-.speed-particles::after{inset:-15% -110px -20% -110px;opacity:.43;animation-duration:.37s;background-size:124px 29px}
+.speed-particles::before,.speed-particles::after{content:"";position:absolute;inset:-12% -110px -12% -110px;transform:translateX(-110px);background-image:radial-gradient(ellipse 4px 1px at 15px 6px,#ffffff96 86%,transparent),radial-gradient(ellipse 9px 1px at 64px 20px,#cbdcffb3 85%,transparent),radial-gradient(ellipse 2px 1px at 108px 33px,#fff9 88%,transparent);background-size:124px 43px;animation:stream 1.25s linear infinite;opacity:.72}
+.speed-particles::after{inset:-15% -110px -20% -110px;opacity:.43;animation-duration:.86s;background-size:124px 29px}
 @keyframes stream{from{transform:translateX(-124px)}to{transform:translateX(0)}}
 .speed-meter{height:100%;flex:none;background:linear-gradient(90deg,#2eaf46,#60c462)}
 .speed-meter.thermo-fill-over{background:linear-gradient(90deg,#ee971d,#ffbf59)}
@@ -208,11 +208,8 @@ h1,h2,h3,.brand-title,.fc-time,.fc-price,.total-sum{font-family:var(--display)}
 .review-total strong{color:var(--ink);font:500 23px/1.2 var(--display);font-variant-numeric:tabular-nums}
 .review-reason-hint{display:flex;align-items:flex-start;gap:7px;margin-top:12px;padding:10px;border-radius:10px;background:#fff8e8;color:#705528;font-size:12px;line-height:16px}
 .review-reason-hint .ui-icon{flex:none;width:18px;height:18px;object-fit:contain}
-.flight-approval .approval-line{margin-top:12px}
 .flight-approval .review-reason-hint{margin-top:10px}
 .side-col.flight-side .budget-card{gap:14px}
-.side-col.flight-side .side-total{margin-top:0;padding:12px 0;border-top:1px solid var(--divider)}
-.side-col.flight-side .flight-approval{border-top:0;padding-top:0}
 .side-col.flight-side .btn-full{margin-top:2px}
 .status-shell{max-width:700px}
 .status-card{padding:28px}
@@ -250,8 +247,10 @@ h1,h2,h3,.brand-title,.fc-time,.fc-price,.total-sum{font-family:var(--display)}
 .trip-meta span+span::before{content:none}
 .ui-icon{display:inline-block;flex:none;vertical-align:middle;object-fit:contain}
 .speed-steps .sc-dot,.speed-steps .step-card.active .sc-dot{background:none}
-.speed-steps .sc-dot img{opacity:.65}
-.speed-steps .step-card.active .sc-dot img{opacity:1;filter:brightness(0) invert(1)}
+.speed-steps .sc-dot img{opacity:.45;filter:brightness(0)}
+.speed-steps .step-card.active .sc-dot img{opacity:.85;filter:brightness(0) invert(.82)}
+.speed-steps .step-card.has-choice .sc-dot img{opacity:1;filter:brightness(0) invert(1)}
+.speed-steps .step-card:disabled .sc-dot img{opacity:.58}
 .dir-tab .ui-icon{transform:none}
 .dir-tab:nth-child(2) .ui-icon{transform:scaleX(-1)}
 .dir-tab:not(.active) .ui-icon{opacity:.5}
@@ -451,3 +450,88 @@ h1,h2,h3,.brand-title,.fc-time,.fc-price,.total-sum{font-family:var(--display)}
 }
 
 @media(max-width:740px),(min-width:821px) and (max-width:980px){.hotels-split{grid-template-columns:1fr}.map-shell{position:static}.map-canvas{aspect-ratio:1.25}}
+
+/* The direction switcher, timeline and results share one surface rhythm. */
+.flight-module{isolation:isolate}
+.flight-module .dir-tab.active,.flight-module .timeline-card,.flight-module .flight-list{box-shadow:none}
+.flight-module .timeline-card{position:relative;z-index:1;margin-bottom:4px}
+.flight-module .tl-top{gap:10px 16px;margin-bottom:12px;min-height:28px}
+.flight-module .timeline-card:has(.tl-body[hidden]) .tl-top{margin-bottom:0}
+.flight-module .timeline-card:has(.tl-body[hidden]){min-height:0}
+.tl-chevron{width:20px;display:grid;justify-items:center;align-items:center;pointer-events:none}
+.tl-chevron .ui-icon{transform:rotate(180deg);transition:transform .2s ease}
+.tl-top:has([aria-expanded="true"]) .tl-chevron .ui-icon{transform:none}
+.tl-status .ui-icon{width:16px;height:16px;flex:none}
+.flight-module .flight-list{padding:16px 8px}
+.flight-module .flight-card{padding-inline:12px}
+.flight-side .flight-budget{gap:16px}
+.flight-side .thermo-list{gap:16px}
+.flight-side .side-total{min-height:50px;padding:16px;border-radius:8px 8px 20px 20px;margin:0}
+.flight-side .flight-approval{margin-top:16px;border-radius:20px 20px 8px 8px;gap:16px}
+.flight-side .side-reassurance{min-height:56px;border-radius:8px 8px 20px 20px}
+.flight-side .thermo-track{margin-top:6px;border-radius:999px;overflow:hidden;
+  mask-image:linear-gradient(90deg,#000 0 75%,transparent 75% calc(75% + 4px),#000 calc(75% + 4px) 100%)}
+.flight-side .thermo-fill-in,.flight-side .thermo-fill-over{border-radius:0}
+.flight-side .thermo-tick{display:none}
+@media(max-width:620px){
+  .flight-module .tl-top{gap:8px}
+  .tl-collapse-toggle{flex-wrap:wrap;gap:4px 6px}
+  .tl-collapse-toggle .tl-status{white-space:normal}
+  .flight-module .flight-card{padding-inline:8px}
+}
+
+.hotel-card{position:relative;display:grid;grid-template-columns:minmax(0,1fr);align-items:stretch;gap:16px;padding:0 0 16px}
+.hotel-card.selected{background:#f3f6ff}
+.hotel-card.inspected,.hotel-card.map-highlighted{box-shadow:0 0 0 2px #93b7ff,0 0 28px #20385a15}
+.hotel-inspect-hit{position:absolute;inset:0;z-index:1;border-radius:20px;cursor:pointer}
+.hotel-inspect-hit:focus-visible{outline:2px solid #126df4;outline-offset:2px}
+.hotel-card .hc-photo{border-radius:20px}
+.hc-details,.hc-bottom{padding:0 16px}
+.hc-top{align-items:center}
+.hc-name{font:500 16px/18px var(--font);margin:0}
+.hc-rating{padding:0;background:none;color:var(--ink);font-size:14px}
+.hc-features{margin:16px 0 0;gap:8px}
+.hc-features li{gap:6px;padding:5px 10px 6px 8px;min-height:29px;line-height:18px;border-radius:999px;font-size:14px;background:#f5f5f5}
+.hc-features .hc-walk{color:#42bd37;background:#ecf8eb}
+.hc-bottom{border-top:0}
+.hc-cost strong{line-height:30px}
+.hc-cost .hc-sub{margin:0;color:var(--ink);line-height:18px}
+.hotel-choose{position:relative;z-index:2;min-width:96px;min-height:50px;border-radius:12px}
+.hotel-map-office{background:none;box-shadow:0 2px 5px #18294430}
+.hotel-map-office img{width:36px;height:36px}
+.hotel-map-pin .map-price.in{background:#4bd144;color:#152713}
+.hotel-map-pin .map-price.over{background:#ffad35;color:#422100}
+.hotel-map-pin .map-price.selected,.hotel-map-pin.inspected .map-price{box-shadow:0 0 0 2px #fff,0 0 0 4px #2677ff}
+.hotel-map-pin.map-highlighted .map-price{transform:scale(1.10);box-shadow:0 0 0 2px #fff,0 0 0 4px #2677ff,0 4px 12px #15273e4a}
+.hotel-map-pin .map-price{transition:transform .17s,box-shadow .17s}
+.map-shell .map-overlay-card{display:block}
+.hotel-inspect-title{margin:0 0 3px;font:500 16px/20px var(--font);color:var(--ink)}
+.hotel-inspect-address{margin:0 0 10px;font-size:13px}
+
+.journey-step-shell{position:relative;min-width:0;z-index:4}
+.speed-steps .step-card.has-choice:not(.active) .sc-dot{background:#3172e2}
+.step-peek{
+  position:absolute;top:calc(100% + 8px);width:min(325px,45%);z-index:5;padding:6px;
+  border-radius:16px;background:var(--surface);box-shadow:0 8px 32px #28334824;
+  visibility:hidden;opacity:0;transform:translateY(-3px);pointer-events:none;
+  transition:opacity .18s ease,transform .18s ease,visibility .18s;
+}
+.step-peek[data-peek="2"]{left:0}
+.step-peek[data-peek="3"]{left:50%;transform:translate(-50%,-3px)}
+.step-peek[data-peek="5"]{right:0}
+.journey-step-shell:has([data-step="2"]:is(:hover,:focus-visible)) [data-peek="2"],
+.journey-step-shell:has([data-step="3"]:is(:hover,:focus-visible)) [data-peek="3"],
+.journey-step-shell:has([data-step="5"]:is(:hover,:focus-visible)) [data-peek="5"]{visibility:visible;opacity:1;transform:translateY(0)}
+.journey-step-shell:has([data-step="3"]:is(:hover,:focus-visible)) [data-peek="3"]{transform:translateX(-50%)}
+.step-peek-row{
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;
+  padding:8px;border-radius:10px;background:var(--surface-muted);font-size:13px
+}
+.step-peek-row+.step-peek-row{margin-top:4px}
+.step-peek-row strong,.step-peek-row small{display:block}
+.step-peek-row strong{font-weight:600}
+.step-peek-row small{color:var(--ink-secondary);font-size:12px}
+.step-peek-row b{white-space:nowrap}
+.step-peek-photo{width:38px;height:32px;border-radius:6px;object-fit:cover}
+@media(max-width:620px){.step-peek{width:min(265px,80%)}}
+@media(prefers-reduced-motion:reduce){.step-peek{transition:none}}
