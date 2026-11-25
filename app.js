@@ -144,6 +144,7 @@
           destSearch: '',
           startDay: null,
           endDay: null,
+          dateDraft: null,
           meetingId: 'any',
           project: 'Мобильный банк',
           goal: '',
@@ -320,38 +321,66 @@
       }
 
       function renderCalendarPopover() {
-        // May 2026 starts on Friday (4 leading blanks for Mon-Thu)
-        let cells = '';
-        for (let i = 0; i < 1; i++) cells += `<div></div>`;
-        for (let d = 1; d <= 31; d++) {
-          const isEdge = state.startDay === d || state.endDay === d;
-          const inRange = state.startDay && state.endDay && d > state.startDay && d < state.endDay;
-          const cls = isEdge ? 'edge' : (inRange ? 'in-range' : '');
-          cells += `<button type="button" class="cal-day ${cls}" data-action="cal-day" data-day="${d}" aria-label="${d} декабря" aria-pressed="${isEdge}">${d}</button>`;
+        const [start, end] = state.dateDraft ?? [state.startDay, state.endDay];
+        const weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+        const offset = (new Date(2026, 11, 1).getDay() + 6) % 7;
+        const cells = ['<div aria-hidden="true"></div>'.repeat(offset)];
+        for (let day = 1; day <= 31; day++) {
+          const startEdge = day === start;
+          const endEdge = day === end;
+          const rangeClass = end && day >= start && day <= end
+            ? startEdge ? 'range-start' : endEdge ? 'range-end' : 'range-middle'
+            : '';
+          cells.push(`<div class="cal-cell ${rangeClass}">
+            <button type="button" class="cal-day${startEdge || endEdge ? ' edge' : ''}" data-action="cal-day" data-day="${day}"
+              aria-label="${day} декабря" aria-pressed="${startEdge || endEdge}">${day}</button>
+          </div>`);
         }
 
-        const hint = !state.startDay
-          ? 'Выберите вылет'
-          : (!state.endDay ? 'Выберите возвращение' : getDatesLabel());
-
-        return `
-          <div class="popover cal-pop align-right" data-popover="true">
-            <div class="cal-head">
-              <span class="cal-month">Декабрь 2026</span>
-              <span class="cal-hint">${hint}</span>
-            </div>
-            <div class="cal-grid">
-              <div class="cal-wd">Пн</div>
-              <div class="cal-wd">Вт</div>
-              <div class="cal-wd">Ср</div>
-              <div class="cal-wd">Чт</div>
-              <div class="cal-wd">Пт</div>
-              <div class="cal-wd">Сб</div>
-              <div class="cal-wd">Вс</div>
-              ${cells}
-            </div>
+        const hint = end ? `${start}–${end} декабря` : start ? 'Выберите возвращение' : 'Выберите вылет';
+        return `<div class="popover cal-pop align-right" data-popover="true" aria-label="Даты поездки">
+          <div class="cal-head">
+            <span class="cal-month">Декабрь 2026</span>
+            <span class="cal-hint" aria-live="polite">${hint}</span>
           </div>
-        `;
+          <div class="cal-grid">
+            ${weekdays.map(day => `<div class="cal-wd">${day}</div>`).join('')}
+            ${cells.join('')}
+          </div>
+          ${end ? '<button type="button" class="btn-primary cal-save" data-action="save-dates">Выбрать</button>' : ''}
+        </div>`;
+      }
+
+      function selectCalendarDay(day) {
+        const [start, end] = state.dateDraft ?? [state.startDay, state.endDay];
+        if (day === start) state.dateDraft = [end, null];
+        else if (day === end) state.dateDraft = [start, null];
+        else if (!start || end) state.dateDraft = [day, null];
+        else state.dateDraft = [Math.min(start, day), Math.max(start, day)];
+      }
+
+      function homePopoverBounds() {
+        return (timePicker?.anchor.dataset.timeAnchor === 'home' ? timePicker.element :
+          document.querySelector('.search-bar .popover'))?.getBoundingClientRect();
+      }
+
+      function stepHomePopover(next, before) {
+        state.openPopover = next === 'time' ? null : next;
+        state.dateDraft = next === 'dates' ? [state.startDay, state.endDay] : null;
+        state.destSearch = '';
+        render();
+        if (next === 'time') openTimePicker(document.querySelector('[data-time-anchor="home"]'));
+        const panel = next === 'time' ? timePicker?.element : document.querySelector('.search-bar .popover');
+        if (!before || !panel || motionPreference.matches) return;
+
+        panel.classList.add('popover-travel');
+        const after = panel.getBoundingClientRect();
+        const x = before.left - after.left;
+        const y = before.top - after.top;
+        panel.animate([
+          {transform:`translate(${x}px,${y}px)`, opacity:.74},
+          {transform:'none', opacity:1}
+        ], {duration:285,easing:'cubic-bezier(.22,1,.36,1)'});
       }
 
       function renderProjectOptions() {
@@ -489,7 +518,6 @@
               <button type="button" class="btn-primary start-cta" data-action="find-tickets">Подобрать рейсы и отель</button>
               </div>
             </div>
-            <button type="button" class="demo-link try-example" data-action="quick-fill-anton">Заполнить пример</button>
             <section class="guide" aria-labelledby="guide-title">
               <h2 id="guide-title">Это важно знать</h2>
               <div class="guide-grid">
@@ -975,14 +1003,13 @@
             maxBounds:[[55.71,49.05],[55.87,49.24]], maxBoundsViscosity:.8
           });
           map.attributionControl.setPrefix(false);
-          const fallback = L.imageOverlay('./assets/kazan-map-wide.webp', extent, {
-            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          L.imageOverlay('./assets/kazan-map-neutral.webp', extent, {
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            className:'kazan-neutral-overlay'
           }).addTo(map);
           const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             minZoom:11, maxZoom:19, updateWhenIdle:true
           });
-          tiles.once('tileload', () => fallback.setOpacity(0));
-          tiles.on('tileerror', () => fallback.setOpacity(1));
           tiles.addTo(map);
           const officeMarker = L.marker(KAZAN_OFFICE.coordinates, {
             icon: L.divIcon({className:'hotel-map-office', html:icon('map-bank',36), iconSize:[36,36], iconAnchor:[18,18]}),
@@ -1197,9 +1224,9 @@
           <span class="trip-status-icon${done ? ' done' : ''}">${icon(glyph,24)}</span>
           <div class="trip-status-text"><strong>${title}</strong><span>${caption}</span>${extra}</div>
         </div>`;
-        const approvals = `<ul class="trip-status-checks${completed ? ' done' : ''}">
+        const approvals = hasOver ? `<ul class="trip-status-checks${completed ? ' done' : ''}">
           ${checks.map(text => `<li>${completed ? ICON.check : '<i aria-hidden="true"></i>'}${text}</li>`).join('')}
-        </ul>`;
+        </ul>` : '';
         return `<div class="trip-status-screen">
           <section class="trip-status-card" aria-labelledby="trip-status-title">
             <h1 id="trip-status-title" aria-live="polite">${completed ? 'Командировка оформлена' : 'Заявка отправлена на согласование'}</h1>
@@ -1772,6 +1799,7 @@
       }
 
       document.addEventListener('click', function (e) {
+        const fromHomePopover = e.target.closest('.search-bar') ? homePopoverBounds() : null;
         if (timePicker && !timePicker.element.contains(e.target) && !e.target.closest('[data-time-anchor]')) closeTimePicker();
         const insidePop = e.target.closest('[data-popover="true"]');
         const isPopTrigger = e.target.closest('[data-action="open-pop"], [data-action="toggle-tip"], [data-time-anchor]');
@@ -1801,7 +1829,9 @@
             closeTimePicker(true);
             return;
           }
-          if (state.openPopover || state.infoTip) {
+          if (target.dataset.timeAnchor === 'home' && fromHomePopover) {
+            stepHomePopover('time', fromHomePopover);
+          } else if (state.openPopover || state.infoTip) {
             state.openPopover = null;
             state.infoTip = null;
             const context = target.dataset.timeAnchor;
@@ -1825,36 +1855,34 @@
           const f = [...OUTBOUND_FLIGHTS,...RETURN_FLIGHTS].find(item => item.id === target.dataset.id);
           openDialog(f.airline + ' · ' + f.depart + '–' + f.arrive, '<p>Прямой рейс · ' + f.duration + '</p><p>' + f.bag + ' · ' + fmt(f.price) + '</p>');
         } else if (action === 'open-pop') {
-          const pop = target.getAttribute('data-pop');
-          state.openPopover = state.openPopover === pop ? null : pop;
-          state.destSearch = '';
-          render();
+          const pop = target.dataset.pop;
+          const next = state.openPopover === pop ? null : pop;
+          if (target.closest('.search-bar')) stepHomePopover(next, fromHomePopover);
+          else {
+            state.openPopover = next;
+            render();
+          }
         } else if (action === 'pick-origin') {
           if (state.origin !== target.dataset.val) clearTripSelections();
           state.origin = target.dataset.val;
-          state.openPopover = null;
-          render();
+          stepHomePopover(!state.dest || state.dest === state.origin ? 'dest' : null, fromHomePopover);
         } else if (action === 'pick-dest') {
           if (state.dest !== target.dataset.val) clearTripSelections();
           state.dest = target.dataset.val;
           state.searchError.dest = false;
-          state.openPopover = !state.startDay ? 'dates' : null;
-          render();
+          stepHomePopover(!state.startDay || !state.endDay ? 'dates' : null, fromHomePopover);
         } else if (action === 'cal-day') {
-          const day = Number(target.getAttribute('data-day'));
-          clearTripSelections();
-          if (!state.startDay || (state.startDay && state.endDay)) {
-            state.startDay = day;
-            state.endDay = null;
-          } else if (day > state.startDay) {
-            state.endDay = day;
-            state.searchError.dates = false;
-            state.openPopover = null;
-          } else {
-            state.startDay = day;
-            state.endDay = null;
-          }
+          selectCalendarDay(Number(target.dataset.day));
           render();
+        } else if (action === 'save-dates') {
+          const [start, end] = state.dateDraft ?? [];
+          if (!start || !end) return;
+          if (start !== state.startDay || end !== state.endDay) clearTripSelections();
+          state.startDay = start;
+          state.endDay = end;
+          state.searchError.dates = false;
+          stepHomePopover(state.dest && getDestObj().office ? 'time' : null, fromHomePopover);
+          if (!timePicker) document.querySelector('[data-pop="dates"]')?.focus({preventScroll:true});
         } else if (action === 'pick-project') {
           state.project = target.getAttribute('data-val');
           state.openPopover = null;
@@ -1862,20 +1890,6 @@
           document.querySelector('[data-pop="project"]')?.focus({preventScroll:true});
         } else if (action === 'pick-goal') {
           state.goal = GOAL_CHIPS[Number(target.getAttribute('data-idx'))];
-          render();
-        } else if (action === 'quick-fill-anton') {
-          if (state.origin !== 'Москва' || state.dest !== 'Казань' || state.startDay !== 12 || state.endDay !== 14) {
-            clearTripSelections();
-          }
-          state.origin = 'Москва';
-          state.dest = 'Казань';
-          state.startDay = 14;
-          state.endDay = 16;
-          state.meetingId = '10:00';
-          state.project = 'Мобильный банк';
-          state.goal = 'Встреча с командой';
-          state.searchError = { dest: false, dates: false };
-          state.openPopover = null;
           render();
         } else if (action === 'find-tickets') {
           const destOk = Boolean(state.dest && state.dest !== state.origin);
