@@ -1,8 +1,8 @@
     (function () {
       'use strict';
 
-      const icon = (name, size = 16) =>
-        name === 'edit' ? `<svg class="ui-icon" width="${size}" height="${size}" viewBox="0 0 16 16" fill="#4E8EF8" aria-hidden="true" focusable="false"><path d="M2.19526 10.3096C2.07024 10.4347 2 10.6042 2 10.781V13.3333H4.82843L10.9567 7.20503L8.12827 4.37659L2.19526 10.3096Z"/><path opacity="0.4" d="M11.3335 13.3333C11.3335 12.5969 10.7365 12 10.0002 12H6.16193L4.82861 13.3333H11.3335Z" fill-rule="evenodd" clip-rule="evenodd"/><path opacity="0.7" d="M10.9565 1.54846L9.0708 3.43408L11.8993 6.26251L12.8421 5.3197C13.3627 4.799 13.3627 3.95478 12.8421 3.43408L10.9565 1.54846Z"/></svg>` :
+      const icon = (name, size = 16, editColor = '#4E8EF8') =>
+        name === 'edit' ? `<svg class="ui-icon" width="${size}" height="${size}" viewBox="0 0 16 16" fill="${editColor}" aria-hidden="true" focusable="false"><path d="M2.19526 10.3096C2.07024 10.4347 2 10.6042 2 10.781V13.3333H4.82843L10.9567 7.20503L8.12827 4.37659L2.19526 10.3096Z"/><path opacity="0.4" d="M11.3335 13.3333C11.3335 12.5969 10.7365 12 10.0002 12H6.16193L4.82861 13.3333H11.3335Z" fill-rule="evenodd" clip-rule="evenodd"/><path opacity="0.7" d="M10.9565 1.54846L9.0708 3.43408L11.8993 6.26251L12.8421 5.3197C13.3627 4.799 13.3627 3.95478 12.8421 3.43408L10.9565 1.54846Z"/></svg>` :
         `<img class="ui-icon" src="./assets/${name}.svg?v=icons-v14" width="${size}" height="${size}" alt="" aria-hidden="true">`;
       const ICON = {
         plane: icon('flight',24), airborne: icon('airborne'), chevron: icon('chevron'),
@@ -621,7 +621,7 @@
             <span class="tl-title">Таймлайн</span>
             ${status || state.timelineCollapsed ? `<span class="tl-status ${tone}">${statusIcon} ${status || 'Наведитесь на рейс'}</span>` : ''}
           </button>
-          ${showMeeting ? `<button class="meeting-tag tl-meeting-tag" data-action="edit-meeting" data-time-anchor="timeline" aria-haspopup="dialog" aria-expanded="false" type="button">${meeting === null ? 'Указать встречу' : 'Встреча ' + toTime(meeting)} ${icon('edit')}</button>` : ''}
+          ${showMeeting ? `<button class="meeting-tag tl-meeting-tag" data-action="edit-meeting" data-time-anchor="timeline" aria-haspopup="dialog" aria-expanded="false" type="button">${meeting === null ? 'Указать встречу' : 'Встреча ' + toTime(meeting)} ${icon('edit', 16, '#fff')}</button>` : ''}
           ${outbound && office ? `<button class="tl-hotel-switch" type="button" data-action="toggle-hotel-stop" role="switch" aria-checked="${state.hotelStop}">
             <span class="switch ${state.hotelStop ? 'on' : ''}"><span class="switch-knob"></span></span>Завезти вещи в отель
           </button>` : ''}
@@ -643,7 +643,7 @@
               <div class="chart-badges">
                 ${outbound && office ? `<button class="meeting-tag meeting-add" data-action="edit-meeting"
                   data-time-anchor="timeline" aria-haspopup="dialog" aria-expanded="false" type="button">
-                  ${meeting === null ? 'Указать встречу' : 'Встреча ' + toTime(meeting)} ${icon('edit')}
+                  ${meeting === null ? 'Указать встречу' : 'Встреча ' + toTime(meeting)} ${icon('edit', 16, '#fff')}
                 </button>` : ''}
               </div>
               <div class="journey-track" aria-hidden="true"></div><div class="journey-axis" aria-hidden="true"></div>
@@ -692,7 +692,7 @@
             <div class="chart-badges">
               ${outbound && office ? `<span class="arrival-tag ${closeMarkers ? (arrival <= meeting ? 'edge-left' : 'edge-right') : ''}" style="left:${pos(arrival)}%">≈${clock(arrival)}</span>` : ''}
               ${nearbyMeeting ? `<button class="meeting-tag ${closeMarkers && arrival > meeting ? 'edge-left' : ''}" data-action="edit-meeting" data-time-anchor="timeline" aria-haspopup="dialog" aria-expanded="false" type="button"
-                style="left:${markerLeft}%">Встреча ${clock(meeting)} ${icon('edit')}</button>` :
+                style="left:${markerLeft}%">Встреча ${clock(meeting)} ${icon('edit', 16, '#fff')}</button>` :
                 outbound && office ? `<button type="button" class="meeting-tag meeting-add" data-action="edit-meeting" data-time-anchor="timeline" aria-haspopup="dialog" aria-expanded="false">${meeting === null ? 'Указать встречу' : 'Встреча ' + clock(meeting)}</button>` : ''}
             </div>
             <div class="journey-track">
