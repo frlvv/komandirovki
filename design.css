@@ -356,9 +356,8 @@ h1,h2,h3,.brand-title,.fc-time,.fc-price,.total-sum{font-family:var(--display)}
 .hotel-empty{color:var(--ink-secondary);padding:12px 0}
 .map-shell{position:sticky;top:24px;min-width:0;box-shadow:none;border-radius:0}
 .map-canvas{height:auto;aspect-ratio:1;border-radius:20px;isolation:isolate;background:#f8f7f3}
-.map-canvas .leaflet-tile-pane{filter:grayscale(1) sepia(.17) contrast(.82) brightness(1.11);opacity:.58}
 .map-canvas .leaflet-control-attribution{font-family:var(--font);font-size:11px}
-.map-unavailable{padding:16px;color:var(--ink-secondary)}
+.map-unavailable{position:absolute;bottom:12px;left:12px;z-index:450;margin:0;padding:8px 10px;border-radius:8px;background:#fff;color:var(--ink-secondary);font-size:13px;pointer-events:none}
 .hotel-map-office{display:grid;place-items:center;background:#ffdd2d;border-radius:50%;box-shadow:0 2px 6px #18294432}
 .hotel-map-office img{width:23px;height:23px;object-fit:contain}
 .hotel-map-pin{display:grid;justify-items:center;align-items:start}

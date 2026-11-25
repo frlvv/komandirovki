@@ -982,6 +982,20 @@
         if (card && card !== hotelCardFrom(event.relatedTarget)) highlightHotel(null);
       });
 
+      async function attachKazanBasemap(map, slot) {
+        try {
+          const layer = await window.createKazanBasemap();
+          if (kazanMap?.map === map) layer.addTo(map);
+        } catch (error) {
+          if (kazanMap?.map !== map) return;
+          console.warn('Не удалось загрузить карту Казани', error);
+          const message = document.createElement('p');
+          message.className = 'map-unavailable';
+          message.textContent = 'Карта не загрузилась';
+          slot.append(message);
+        }
+      }
+
       function updateHotelMap(app) {
         const slot = app.querySelector('[data-kazan-map]');
         if (!slot) {
@@ -997,20 +1011,12 @@
         }
 
         if (!kazanMap) {
-          const extent = [[55.764, 49.113], [55.793, 49.149]];
           const map = L.map(slot, {
             scrollWheelZoom:true, wheelPxPerZoomLevel:125, minZoom:11, maxZoom:19, zoomSnap:.5,
             maxBounds:[[55.71,49.05],[55.87,49.24]], maxBoundsViscosity:.8
           });
           map.attributionControl.setPrefix(false);
-          L.imageOverlay('./assets/kazan-map-neutral.webp', extent, {
-            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-            className:'kazan-neutral-overlay'
-          }).addTo(map);
-          const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            minZoom:11, maxZoom:19, updateWhenIdle:true
-          });
-          tiles.addTo(map);
+          map.attributionControl.addAttribution('© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>');
           const officeMarker = L.marker(KAZAN_OFFICE.coordinates, {
             icon: L.divIcon({className:'hotel-map-office', html:icon('map-bank',36), iconSize:[36,36], iconAnchor:[18,18]}),
             alt:'ИТ-хаб Т-Банка', title:'ИТ-хаб Т-Банка'
@@ -1019,6 +1025,7 @@
           map.fitBounds([KAZAN_OFFICE.coordinates, ...KAZAN_HOTELS.map(hotel => hotel.coordinates)], {padding:[54,48],maxZoom:16});
           kazanMap = {slot,map,markers:[],hotels:[]};
           map.on('zoomend resize', placeKazanPrices);
+          attachKazanBasemap(map, slot);
         } else {
           slot.replaceWith(kazanMap.slot);
           kazanMap.map.invalidateSize({pan:false});
