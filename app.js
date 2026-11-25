@@ -1194,7 +1194,7 @@
               <div class="thermo-list">
                 ${renderThermostat('flight', 'Авиабилеты', fTotal, FLIGHT_LIMIT, flightTip)}
                 ${!reviewing && overrun.flightOver ? '<p class="budget-overline">Лимит на авиабилеты превышен</p>' : ''}
-                ${renderThermostat('hotel', 'Отель', hTotal, hLimit, hotelTip)}
+                ${renderThermostat('hotel', 'Проживание', hTotal, hLimit, hotelTip)}
                 ${!reviewing && overrun.hotelOver ? '<p class="budget-overline">Лимит на отель превышен</p>' : ''}
               </div>
             </div>
