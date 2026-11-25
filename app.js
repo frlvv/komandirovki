@@ -2,7 +2,8 @@
       'use strict';
 
       const icon = (name, size = 16) =>
-        `<img class="ui-icon" src="./assets/${name}.svg" width="${size}" height="${size}" alt="" aria-hidden="true">`;
+        name === 'edit' ? `<svg class="ui-icon" width="${size}" height="${size}" viewBox="0 0 16 16" fill="#4E8EF8" aria-hidden="true" focusable="false"><path d="M2.19526 10.3096C2.07024 10.4347 2 10.6042 2 10.781V13.3333H4.82843L10.9567 7.20503L8.12827 4.37659L2.19526 10.3096Z"/><path opacity="0.4" d="M11.3335 13.3333C11.3335 12.5969 10.7365 12 10.0002 12H6.16193L4.82861 13.3333H11.3335Z" fill-rule="evenodd" clip-rule="evenodd"/><path opacity="0.7" d="M10.9565 1.54846L9.0708 3.43408L11.8993 6.26251L12.8421 5.3197C13.3627 4.799 13.3627 3.95478 12.8421 3.43408L10.9565 1.54846Z"/></svg>` :
+        `<img class="ui-icon" src="./assets/${name}.svg?v=icons-v14" width="${size}" height="${size}" alt="" aria-hidden="true">`;
       const ICON = {
         plane: icon('flight',24), airborne: icon('airborne'), chevron: icon('chevron'),
         check: icon('tick'), lock: icon('lock',18), dot: icon('notice',18)
@@ -511,7 +512,7 @@
                 </div>
 
                 <div class="manager-strip">
-                  <img src="./assets/manager.svg" alt="">
+                  <img src="./assets/manager.svg?v=icons-v14" alt="">
                   <div><small>${isStep1Complete() ? 'Согласует' : 'Руководитель'}</small><div>${esc(proj.manager)}</div></div>
                 </div>
               </div>
@@ -522,7 +523,7 @@
               <h2 id="guide-title">Это важно знать</h2>
               <div class="guide-grid">
                 ${[['rules','rules','Правила командировок','Что оплачивает компания и как устроен процесс','Смотреть правила'],['limits','notice','Превышение лимита','Как объяснить причину и получить согласование','Что делать при превышении'],['documents','documents','После поездки','Какие документы собрать после возвращения','Список документов']].map(([id,image,title,copy,action]) => `<article class="guide-card">
-                  <img src="./assets/${image}.svg" alt=""><h3>${title}</h3><p>${copy}</p>
+                  <img src="./assets/${image}.svg?v=icons-v14" alt=""><h3>${title}</h3><p>${copy}</p>
                   <button type="button" class="btn-secondary" data-action="help" data-id="${id === 'limits' ? 'overrun' : id}">Подробнее<span class="sr-only"> · ${action}</span></button>
                 </article>`).join('')}
               </div>
@@ -737,7 +738,7 @@
                     <div class="fc-duration"><span>В пути ${f.duration}</span><span class="fc-connector" aria-hidden="true"></span><span class="fc-direct">Прямой</span></div>
                     <span class="fc-end"><strong class="fc-time">${f.arrive}</strong><span class="fc-city">${airportCodes[end] || '—'}</span></span>
                   </div>
-                  <div class="fc-airline"><img class="airline-logo" src="./assets/airline-${airlineLogos[f.airline]}.svg" width="54" height="24" alt="">${f.airline}<span class="fc-bag">${f.bag} ${icon('bag',24)}</span></div>
+                  <div class="fc-airline"><img class="airline-logo" src="./assets/airline-${airlineLogos[f.airline]}.svg?v=icons-v14" width="54" height="24" alt="">${f.airline}<span class="fc-bag">${f.bag} ${icon('bag',24)}</span></div>
                   <div class="fc-right"><strong class="fc-price">${fmt(f.price)}</strong><small class="${over ? 'over-price' : ''}">${over ? 'Выше лимита' : 'В лимите'}</small></div>
                   <div class="fc-actions"><button type="button" class="flight-choose" data-action="${outbound ? 'pick-out' : 'pick-ret'}" data-id="${f.id}" aria-pressed="${chosen}">${chosen ? 'Выбран' : 'Выбрать'}</button>
                     <button type="button" class="text-action" data-action="flight-details" data-id="${f.id}">Подробнее ${ICON.chevron}</button></div>
