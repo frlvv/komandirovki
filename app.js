@@ -130,9 +130,10 @@
       ];
 
       const REASON_CHIPS = [
-        '5 мин пешком до офиса',
-        'Успею на утренний созвон',
-        'Нет свободных номеров в лимите'
+        'Близко к офису',
+        'Нет подходящих отелей',
+        'Экономия на транспорте',
+        'Проживание с командой'
       ];
 
       function createInitialState() {
@@ -164,12 +165,13 @@
           infoTip: null, // 'flight' | 'hotel' | null
           reason: '',
           reasonError: false,
-          autoBuy: true,
-          submittedTime: ''
+          approvalComplete: false,
+          statusDetailsOpen: false
         };
       }
 
       let state = createInitialState();
+      let approvalTimer;
 
       const fmt = (n) => new Intl.NumberFormat('ru-RU').format(n) + '\u00a0₽';
       const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -286,11 +288,6 @@
         state.step = 3;
         state.openPopover = null;
         state.infoTip = null;
-      }
-
-      function currentHHMM() {
-        const now = new Date();
-        return String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
       }
 
       function renderDestItems() {
@@ -547,10 +544,11 @@
           ${icon('progress-review', 20)}
           <div><strong>Итого за поездку</strong><small>Согласует ${esc(getProjectObj().manager)}</small></div><b>${fmt(getTripTotal())}</b>
         </div>` : '';
+        const completed = [Boolean(out && back), Boolean(hotel), false];
         const steps = [
-          [2, 'Билеты', [out, back].filter(Boolean).map(flight => `${flight.depart}–${flight.arrive}`).join(', ') || 'Туда и обратно', false, flightPreview, 'progress-plane'],
-          [3, 'Проживание', hotel ? hotelName(hotel) : 'Не выбрано', !out || !back, hotelPreview, 'progress-stay'],
-          [5, 'Сводка', 'Проверьте перед отправкой', !out || !back || !hotel, summaryPreview, 'progress-review']
+          [2, 'Билеты', [out, back].filter(Boolean).map(flight => `${flight.depart}–${flight.arrive}`).join(', ') || 'Туда и обратно', false, flightPreview, 'plane'],
+          [3, 'Проживание', hotel ? hotelName(hotel) : 'Не выбрано', !out || !back, hotelPreview, 'stay'],
+          [5, 'Сводка', 'Проверьте перед отправкой', !out || !back || !hotel, summaryPreview, 'review']
         ];
 
         return `
@@ -566,8 +564,9 @@
                 <button class="step-card ${i <= active ? 'active' : ''}" type="button"
                   data-action="go-step" data-step="${stage}" ${i === active ? 'aria-current="step"' : ''} ${disabled ? 'disabled' : ''}
                   ${preview ? `aria-describedby="step-peek-${stage}"` : ''}>
-                  <span class="sc-dot step-glyph" aria-hidden="true">${icon(glyph,24)}
-                    ${i > 0 ? `<span class="step-glyph-variant">${icon(i === 1 ? 'progress-stay-filled' : 'progress-review-active',24)}</span>` : ''}
+                  <span class="sc-dot step-glyph" data-complete="${completed[i]}" aria-hidden="true">
+                    ${icon('step-' + glyph + '-glyph',24)}
+                    ${completed[i] ? `<span class="step-glyph-blue">${icon('step-' + glyph + '-blue',24)}</span>` : ''}
                   </span>
                   <span><span class="sc-label">${name}</span><span class="sc-value" title="${esc(detail)}">${esc(detail)}</span></span>
                 </button>`).join('')}
@@ -586,12 +585,12 @@
       const dayLabel = day => day + ' декабря, ' + weekdays[new Date(2026, 11, day).getDay()];
 
       function renderTimelineHead(outbound, office, status, tone, meeting) {
-        const showMeeting = outbound && office && (state.timelineCollapsed || !status);
+        const showMeeting = outbound && office && state.timelineCollapsed;
         const statusIcon = tone === 'late' ? icon('budget-alert',16) : tone === 'ok' ? ICON.check : '';
         return `<div class="tl-top">
           <button class="tl-collapse-toggle" type="button" data-action="toggle-timeline" aria-expanded="${!state.timelineCollapsed}" aria-controls="journey-chart">
             <span class="tl-title">Таймлайн</span>
-            <span class="tl-status ${tone}">${statusIcon} ${status || 'Наведитесь на рейс'}</span>
+            ${status || state.timelineCollapsed ? `<span class="tl-status ${tone}">${statusIcon} ${status || 'Наведитесь на рейс'}</span>` : ''}
           </button>
           ${showMeeting ? `<button class="meeting-tag tl-meeting-tag" data-action="edit-meeting" data-time-anchor="timeline" aria-haspopup="dialog" aria-expanded="false" type="button">${meeting === null ? 'Указать встречу' : 'Встреча ' + toTime(meeting)} ${icon('edit')}</button>` : ''}
           ${outbound && office ? `<button class="tl-hotel-switch" type="button" data-action="toggle-hotel-stop" role="switch" aria-checked="${state.hotelStop}">
@@ -607,8 +606,21 @@
         const flight = list.find(item => item.id === state.hoverFlightId) || (outbound ? getOutFlight() : getRetFlight());
         const meeting = getMeeting().minutes;
         const office = getDestObj().office;
+        const stop = outbound && state.hotelStop && office;
+        const hotelStopNote = stop ? '<p class="hotel-stop-note">Если приедете до заселения, уточните хранение багажа у отеля.</p>' : '';
         if (!flight) return renderTimelineHead(outbound, office, '', 'neutral', meeting) +
-          `<div id="journey-chart" class="tl-body tl-empty-body" ${state.timelineCollapsed ? 'hidden' : ''}></div>`;
+          `<div id="journey-chart" class="tl-body" ${state.timelineCollapsed ? 'hidden' : ''}>
+            <div class="journey-chart tl-empty-chart">
+              <div class="chart-badges">
+                ${outbound && office ? `<button class="meeting-tag meeting-add" data-action="edit-meeting"
+                  data-time-anchor="timeline" aria-haspopup="dialog" aria-expanded="false" type="button">
+                  ${meeting === null ? 'Указать встречу' : 'Встреча ' + toTime(meeting)} ${icon('edit')}
+                </button>` : ''}
+              </div>
+              <div class="journey-track" aria-hidden="true"></div><div class="journey-axis" aria-hidden="true"></div>
+              <span class="tl-status neutral tl-empty-prompt">Наведитесь на рейс</span>
+            </div>${hotelStopNote}
+          </div>`;
 
         const arrival = getArrival(flight);
         const leave = flight.depMin - AIRPORT_MINUTES - TAXI_MINUTES;
@@ -634,7 +646,6 @@
           ? (balance >= 0 ? 'Успеваете с запасом в ' : 'Опоздание на ') + durationLabel(Math.abs(balance))
           : (office ? 'В офисе ≈' + clock(arrival) : 'Прилёт в ' + flight.arrive))
           : (balance < 0 ? 'Уйти из офиса в ' + clock(leave) : 'Успеете завершить рабочий день');
-        const stop = outbound && state.hotelStop && office;
         const flightSegment = [flight.depMin,flight.arrMin,'flight',`${ICON.airborne} ${flight.depart}–${flight.arrive}`];
         const segments = outbound
           ? [flightSegment, ...(office
@@ -663,7 +674,7 @@
             </div>
             <div class="journey-axis" aria-hidden="true">${tickTimes.map((time,i) => `<span style="left:${pos(time)}%" class="${i === 0 ? 'first' : i === tickTimes.length - 1 && pos(time) > 95 ? 'last' : ''}">${clock(time)}</span>`).join('')}</div>
           </div>
-          ${stop ? '<p class="hotel-stop-note">Если приедете до заселения, уточните хранение багажа у отеля.</p>' : ''}</div>`;
+          ${hotelStopNote}</div>`;
       }
 
       const airportCodes = {'Москва':'SVO','Казань':'KZN','Санкт-Петербург':'LED','Екатеринбург':'SVX',
@@ -708,57 +719,58 @@
           </div>`;
       }
 
-      function renderReview() {
+      function renderReviewBookings(editable) {
         const out = getOutFlight();
         const back = getRetFlight();
         const hotel = getHotel();
-        const proj = getProjectObj();
-        const overrun = getOverrunInfo();
-        const total = getTripTotal();
-        return `<section class="review-page">
-          <header class="review-heading">
-            <div class="review-eyebrow">Проверьте перед отправкой</div>
-            <h1>Сводка поездки</h1>
-            <p>${esc(state.origin)} — ${esc(state.dest)} <span>·</span> ${getShortDates()}</p>
-          </header>
-
-          <section class="review-card review-itinerary" aria-labelledby="review-itinerary-title">
-            <div class="review-section-head"><div><span class="review-kicker">Маршрут</span><h2 id="review-itinerary-title">Билеты</h2></div>
-              <button class="text-action" data-action="go-step" data-step="2">Изменить</button></div>
-            <div class="review-flight-pair">
-              <div class="review-flight"><span class="review-icon">${icon('flight',22)}</span><div class="review-flight-copy"><strong>${esc(state.origin)} → ${esc(state.dest)}</strong><span>${dayLabel(state.startDay)} · ${out.depart}–${out.arrive}</span></div><b>${fmt(out.price)}</b></div>
-              <div class="review-flight"><span class="review-icon return">${icon('flight',22)}</span><div class="review-flight-copy"><strong>${esc(state.dest)} → ${esc(state.origin)}</strong><span>${dayLabel(state.endDay)} · ${back.depart}–${back.arrive}</span></div><b>${fmt(back.price)}</b></div>
+        const nights = getNights();
+        const date = day => `${day} декабря, ${['вс','пн','вт','ср','чт','пт','сб'][new Date(2026, 11, day).getDay()]}`;
+        const flight = (item, from, to, day, glyph) => `<div class="review-booking-row">
+          ${icon(glyph,24)}
+          <span class="review-flight-info"><span>${esc(from)} – ${esc(to)}</span>
+            <strong>${date(day)} · ${item.depart}–${item.arrive} · ${esc(item.airline)}</strong></span>
+          <span class="review-price">${fmt(item.price)}</span>
+        </div>`;
+        const edit = step => editable ? `<button class="text-action" data-action="go-step" data-step="${step}">Изменить</button>` : '';
+        const nightsLabel = nights === 2 ? 'две ночи' : pluralNights(nights);
+        return `<div class="review-booking-stack">
+          <section class="review-booking" aria-labelledby="review-itinerary-title">
+            <div class="review-booking-card">
+              <header><h2 id="review-itinerary-title">Билеты</h2>${edit(2)}</header>
+              ${flight(out, state.origin, state.dest, state.startDay, 'review-out')}
+              ${flight(back, state.dest, state.origin, state.endDay, 'review-back')}
             </div>
-            <div class="review-subtotal"><span>Билеты туда и обратно</span><strong>${fmt(getFlightsTotal())}</strong></div>
+            <div class="review-booking-total"><span>Итого туда и обратно</span><strong>${fmt(getFlightsTotal())}</strong></div>
           </section>
-
-          <section class="review-card review-stay" aria-labelledby="review-stay-title">
-            <div class="review-section-head"><div><span class="review-kicker">Проживание</span><h2 id="review-stay-title">${esc(hotelName(hotel))}</h2></div>
-              <button class="text-action" data-action="go-step" data-step="3">Изменить</button></div>
-            <div class="review-stay-details"><span>${pluralNights(getNights())}</span><span>${esc(hotel.commuteFull || 'Поездка до офиса')}</span>${hotel.address ? `<span>${esc(hotel.address)}</span>` : ''}${hotel.checkIn ? `<span>Заезд ${state.startDay} декабря с ${hotel.checkIn}</span><span>Выезд ${state.endDay} декабря до ${hotel.checkOut}</span>` : ''}</div>
-            <div class="review-subtotal"><span>Проживание</span><strong>${fmt(getHotelTotal(hotel))}</strong></div>
-          </section>
-
-          ${overrun.hasOver ? `<section class="review-card review-reason ${state.reasonError ? 'has-error' : ''}" aria-labelledby="review-reason-title">
-            <div class="review-section-head"><div><span class="review-kicker">Нужно пояснение</span><h2 id="review-reason-title">Выше ориентира на ${fmt(overrun.totalOver)}</h2></div></div>
-            <p class="review-reason-copy">Руководитель увидит сумму превышения и ваш комментарий к поездке.</p>
-            <div class="overrun-chips review-reason-chips" id="reason-chips">
-              ${REASON_CHIPS.map((c, idx) => `<button type="button" class="overrun-chip ${state.reason === c ? 'active' : ''}" data-action="pick-reason" data-idx="${idx}">${esc(c)}</button>`).join('')}
+          <section class="review-booking" aria-labelledby="review-stay-title">
+            <div class="review-booking-card">
+              <header><h2 id="review-stay-title">Проживание</h2>${edit(3)}</header>
+              <div class="review-booking-row">${icon('review-hotel',24)}<span>${esc(hotelName(hotel))}</span>
+                <span class="review-price">${fmt(hotel.night)} за ночь</span></div>
             </div>
-            <textarea id="reason-textarea" class="reason-area ${state.reasonError ? 'error' : ''}" rows="3"
-              aria-label="Обоснование превышения лимита" aria-invalid="${state.reasonError}" placeholder="Почему этот вариант подходит для поездки?">${esc(state.reason)}</textarea>
-            <div id="reason-err" class="reason-err" role="alert" style="display:${state.reasonError ? 'block' : 'none'};">Добавьте пояснение, чтобы отправить поездку на согласование</div>
+            <div class="review-booking-total"><span>Итого за ${nightsLabel}</span><strong>${fmt(getHotelTotal(hotel))}</strong></div>
+          </section>
+        </div>`;
+      }
+
+      function renderReview() {
+        const {hasOver, flightOver, hotelOver, totalOver} = getOverrunInfo();
+        const label = flightOver && hotelOver ? 'поездку' : flightOver ? 'билеты' : 'проживание';
+        const next = flightOver && hotelOver ? 'другие билеты или отель' : flightOver ? 'другие билеты' : 'другой отель';
+        const options = hotelOver ? REASON_CHIPS : ['Подходит время рейса', 'Нет подходящих рейсов'];
+        return `<section class="review-finish${hasOver ? ' with-reason' : ''}" aria-label="Сводка поездки">
+          ${renderReviewBookings(true)}
+          ${hasOver ? `<section class="review-justification" aria-labelledby="review-reason-title">
+            <h2 id="review-reason-title">Дополнительное согласование</h2>
+            <p>Вы превысили лимит на ${label} на ${fmt(totalOver)}. Объясните, почему выбрали этот вариант.</p>
+            <textarea id="reason-textarea" class="reason-area" rows="3" aria-label="Причина превышения лимита"
+              aria-invalid="${state.reasonError}" placeholder="Причина превышения лимита">${esc(state.reason)}</textarea>
+            <div class="review-justification-options" id="reason-chips">
+              ${options.map(reason => `<button type="button" class="overrun-chip ${state.reason === reason ? 'active' : ''}"
+                data-action="pick-reason" data-reason="${esc(reason)}" aria-pressed="${state.reason === reason}">${esc(reason)}</button>`).join('')}
+            </div>
+            <p class="review-agreement-note">Руководитель рассмотрит поездку и превышение лимита в одной заявке. Если дополнительные расходы не одобрят, предложим выбрать ${next}.</p>
           </section>` : ''}
-
-          <section class="review-card review-approval" aria-labelledby="review-approval-title">
-            <div class="review-section-head"><div><span class="review-kicker">Согласование</span><h2 id="review-approval-title">${esc(proj.name)}</h2></div></div>
-            <div class="review-approval-row">${icon('manager',24)}<div><span>Согласует поездку</span><strong>${esc(proj.manager)}</strong></div></div>
-            <div class="review-autobuy">
-              <div><strong>Купить после одобрения</strong><p>${state.autoBuy ? 'Оплатим билеты и отель с бюджета проекта' : 'После одобрения можно будет подтвердить покупку вручную'}</p></div>
-              <button type="button" class="switch ${state.autoBuy ? 'on' : ''}" data-action="toggle-autobuy" role="switch" aria-checked="${state.autoBuy}" aria-label="Купить после одобрения"><span class="switch-knob"></span></button>
-            </div>
-          </section>
-          <div class="review-total"><span>Итого за поездку</span><strong>${total ? fmt(total) : 'до ' + fmt(FLIGHT_LIMIT + getHotelLimitTotal())}</strong></div>
         </section>`;
       }
 
@@ -779,7 +791,7 @@
     "Согласование и покупка",
     "Поездку согласует руководитель выбранного проекта. До его одобрения деньги не списываются.",
     "Автопокупка",
-    "Если она включена, после одобрения оплатим билеты и отель с бюджета проекта и пришлём документы.",
+    "После одобрения оплатим билеты и отель с бюджета проекта и пришлём документы.",
     "Цена фиксируется при покупке",
     "Если билет подорожает больше чем на 10%, запросим подтверждение."
   ],
@@ -994,7 +1006,10 @@
         const groups = [];
         for (const hotel of hotels) {
           const point = map.project(hotel.coordinates);
-          const group = groups.find(group => Math.abs(point.x - group.point.x) < 76 && Math.abs(point.y - group.point.y) < 34);
+          const group = groups.find(group => {
+            const minDistance = group.hotels.length > 1 ? 90 : 76;
+            return Math.abs(point.x - group.point.x) < minDistance && Math.abs(point.y - group.point.y) < 34;
+          });
           if (group) group.hotels.push(hotel);
           else groups.push({point, hotels:[hotel]});
         }
@@ -1020,8 +1035,8 @@
           const marker = L.marker(coordinates, {
             icon: L.divIcon({
               className:`hotel-map-pin${isCluster ? ' hotel-map-cluster' : ''}`,
-              html:`<span class="map-price ${over ? 'over' : 'in'}${selected ? ' selected' : ''}">${isCluster ? 'от ' : ''}${fmt(price)}</span>`,
-              iconSize:[76,30], iconAnchor:[38,36], tooltipAnchor:[0,-36]
+              html:`<span class="map-price ${over ? 'over' : 'in'}${selected ? ' selected' : ''}">${isCluster ? `<span class="map-cluster-count" aria-hidden="true">${hotels.length}</span>от ` : ''}${fmt(price)}</span>`,
+              iconSize:isCluster ? [114,32] : [76,32], iconAnchor:isCluster ? [57,32] : [38,32], tooltipAnchor:[0,-32]
             })
           }).addTo(map);
           const element = marker.getElement();
@@ -1116,7 +1131,10 @@
 
         let ctaText = 'Отправить на согласование';
         let ctaAction = 'submit-trip';
-        let ctaDisabled = !readyToSubmit;
+        const reviewing = state.step === 5;
+        const missingReason = reviewing && overrun.hasOver && !state.reason.trim();
+        let ctaDisabled = !readyToSubmit || missingReason;
+        if (missingReason) ctaText = 'Укажите причину превышения';
 
         if (!outF || !retF) {
           ctaText = state.step === 2 ? (outF ? 'Выберите обратный рейс' : 'Выберите рейс туда') : 'Выбрать авиабилеты';
@@ -1134,16 +1152,16 @@
         const flightTip = `Ориентир компании для ${esc(dest.genitive)} — до ${fmt(FLIGHT_LIMIT)} туда и обратно.`;
         const hotelTip = `Ориентир для ${esc(dest.genitive)} — до ${fmt(HOTEL_NIGHT_LIMIT)} за ночь (${fmt(hLimit)} за ${pluralNights(nights)}).`;
 
-        if (state.step === 2 || state.step === 3) return `
+        return `
           <aside class="side-col flight-side">
             <div class="flight-side-group">
             <div class="budget-card flight-budget">
               <h2 class="bc-title">Бюджет на поездку</h2>
               <div class="thermo-list">
                 ${renderThermostat('flight', 'Авиабилеты', fTotal, FLIGHT_LIMIT, flightTip)}
-                ${overrun.flightOver ? '<p class="budget-overline">Лимит на авиабилеты превышен</p>' : ''}
+                ${!reviewing && overrun.flightOver ? '<p class="budget-overline">Лимит на авиабилеты превышен</p>' : ''}
                 ${renderThermostat('hotel', 'Отель', hTotal, hLimit, hotelTip)}
-                ${overrun.hotelOver ? '<p class="budget-overline">Лимит на отель превышен</p>' : ''}
+                ${!reviewing && overrun.hotelOver ? '<p class="budget-overline">Лимит на отель превышен</p>' : ''}
               </div>
             </div>
             <div class="side-total total-row"><span>Итого</span><strong data-flight-total>${total ? fmt(total) : 'до ' + fmt(FLIGHT_LIMIT + hLimit)}</strong></div>
@@ -1154,149 +1172,60 @@
               <div class="approval-line"><span>Проект</span>${renderProjectTrigger(proj, '')}</div>
               <div class="approval-line"><span>Согласует поездку</span><strong>${esc(proj.manager)}</strong></div>
             </div>
-            <div class="side-reassurance${overrun.hasOver ? ' over' : ''}">
+            ${reviewing ? '' : `<div class="side-reassurance${overrun.hasOver ? ' over' : ''}">
               ${overrun.hasOver ? `${icon('budget-alert',24)}<span>Потребуется пояснение превышения лимита</span>` : `${icon('approval',24)}<span>Все по кайфу</span>`}
-            </div>
+            </div>`}
             </div>
             <button type="button" class="btn-primary btn-full" data-action="${ctaAction}" ${ctaDisabled ? 'disabled' : ''}>
               ${!outF || !retF ? 'Выберите билеты' : ctaText}
             </button>
           </aside>`;
 
-        return `
-          <aside class="side-col">
-            <div class="budget-card">
-              <h2 class="bc-title">Бюджет и согласование</h2>
-              ${renderProjectTrigger(proj, 'project-pill')}
-              <div class="thermo-list">
-                ${renderThermostat('flight', 'Авиабилеты', fTotal, FLIGHT_LIMIT, flightTip)}
-                ${renderThermostat('hotel', 'Отель', hTotal, hLimit, hotelTip)}
-              </div>
-
-              <div class="total-block">
-                <div class="total-row">
-                  <span class="total-label">Итого</span>
-                  <span class="total-sum">${total > 0 ? fmt(total) : 'до ' + fmt(FLIGHT_LIMIT + hLimit)}</span>
-                </div>
-
-              </div>
-
-              <div class="approval-block">
-                <div class="approver-row">
-                  ${icon('manager',24)}
-                  <div>
-                    <div class="approver-name"><small>Согласует</small><br>${esc(proj.manager)}</div>
-                    <div class="approver-sub ${overrun.hasOver ? 'over' : ''}">
-                      ${overrun.hasOver
-                        ? `Согласует поездку и превышение +${fmt(overrun.totalOver)}`
-                        : 'Стандартное согласование поездки'}
-                    </div>
-                  </div>
-                </div>
-
-                <button type="button" class="btn-primary btn-full" data-action="${ctaAction}" ${ctaDisabled ? 'disabled' : ''}>
-                  ${ctaText}
-                </button>
-              </div>
-            </div>
-          </aside>
-        `;
       }
 
       function renderStep4() {
-        const outF = getOutFlight();
-        const retF = getRetFlight();
-        const hotel = getHotel();
-        const proj = getProjectObj();
-        const total = getTripTotal();
-        const overrun = getOverrunInfo();
-
-        return `
-          <div class="status-shell">
-            <section class="status-card">
-              <div class="confirmation-head">
-                <span class="approval-pill">На согласовании</span>
-                <h1 class="status-h1">Заявка отправлена</h1>
-                <div class="confirmation-lock">${ICON.lock}<div><strong>Билеты и отель ещё не куплены</strong>
-                  <p>Цена сейчас ${fmt(total)}. ${state.autoBuy ? 'Оплатим с бюджета проекта после одобрения.' : 'После одобрения попросим подтвердить покупку.'}</p></div></div>
-              </div>
-
-              <div class="tracker">
-                <div class="t-row">
-                  <div class="t-rail">
-                    <div class="t-node done">${ICON.check}</div>
-                    <div class="t-stem"></div>
-                  </div>
-                  <div class="t-content">
-                    <div class="t-title">Заявка создана</div>
-                    <div class="t-sub">${esc(state.origin)} → ${esc(state.dest)} · ${getShortDates()}</div>
-                  </div>
-                </div>
-
-                <div class="t-row">
-                  <div class="t-rail">
-                    <div class="t-node active">${ICON.dot}</div>
-                    <div class="t-stem"></div>
-                  </div>
-                  <div class="t-content">
-                    <div class="t-title">Согласование · ${esc(proj.manager)}</div>
-                    <div class="t-sub">
-                      ${overrun.hasOver
-                        ? `В процессе · включая превышение +${fmt(overrun.totalOver)}`
-                        : 'В процессе · стандартное согласование поездки'}
-                    </div>
-                    ${overrun.hasOver ? `<div class="t-quote">«${esc(state.reason.trim())}»</div>` : ''}
-                  </div>
-                </div>
-
-                <div class="t-row">
-                  <div class="t-rail">
-                    <div class="t-node next">3</div>
-                  </div>
-                  <div class="t-content" style="padding-bottom:0;">
-                    <div class="t-title muted">
-                      ${state.autoBuy ? 'Автоматическая покупка' : 'Ваше подтверждение и покупка вручную'}
-                    </div>
-                    <div class="t-sub">
-                      ${state.autoBuy
-                        ? 'Пришлём билеты и ваучер после оплаты'
-                        : 'После одобрения пришлём уведомление, чтобы вы проверили и подтвердили покупку'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="status-summary">
-                <div>
-                  <div class="ss-k">Маршрут и даты</div>
-                  <div class="ss-v">${esc(state.origin)} → ${esc(state.dest)} · ${esc(getShortDates())}</div>
-                </div>
-                <div>
-                  <div class="ss-k">Проект и оплата</div>
-                  <div class="ss-v">${esc(proj.name)} · чеки не нужны</div>
-                </div>
-                <div>
-                  <div class="ss-k">Билеты</div>
-                  <div class="ss-v">${outF.depart}→${outF.arrive}, ${retF.depart}→${retF.arrive} · ${fmt(getFlightsTotal())}</div>
-                </div>
-                <div>
-                  <div class="ss-k">Гостиница · ${pluralNights(getNights())}</div>
-                  <div class="ss-v">${esc(hotelName(hotel))} · ${fmt(getHotelTotal(hotel))}</div>
-                </div>
-              </div>
-
-              <div class="status-actions">
-                <button type="button" class="btn-secondary" data-action="back-to-edit">
-                  Отозвать и изменить
-                </button>
-                <button type="button" class="btn-primary" data-action="new-trip">
-                  Новая командировка
-                </button>
-              </div>
-            </section>
-          </div>
-        `;
+        const completed = state.approvalComplete;
+        const {flightOver, hotelOver, hasOver} = getOverrunInfo();
+        const {manager} = getProjectObj();
+        const pending = manager === 'Антон С.' ? 'Ожидаем решения Антона С.' : `Ожидаем решения · ${manager}`;
+        const checks = [
+          'Согласование командировки',
+          ...(flightOver ? ['Согласование превышения лимита на билеты'] : []),
+          ...(hotelOver ? ['Согласование превышения лимита на проживание'] : [])
+        ];
+        const row = (glyph, done, title, caption, extra = '') => `<div class="trip-status-row">
+          <span class="trip-status-icon${done ? ' done' : ''}">${icon(glyph,24)}</span>
+          <div class="trip-status-text"><strong>${title}</strong><span>${caption}</span>${extra}</div>
+        </div>`;
+        const approvals = `<ul class="trip-status-checks${completed ? ' done' : ''}">
+          ${checks.map(text => `<li>${completed ? ICON.check : '<i aria-hidden="true"></i>'}${text}</li>`).join('')}
+        </ul>`;
+        return `<div class="trip-status-screen">
+          <section class="trip-status-card" aria-labelledby="trip-status-title">
+            <h1 id="trip-status-title" aria-live="polite">${completed ? 'Командировка оформлена' : 'Заявка отправлена на согласование'}</h1>
+            ${row('status-created', true, 'Заявка создана', 'Все данные переданы на согласование')}
+            ${row(completed ? 'status-approved' : 'status-awaiting', completed, completed ? 'Поездка согласована' : 'Согласование поездки',
+              completed ? esc(manager) + ' · Заявка одобрена' : esc(pending), approvals)}
+            ${row(completed ? 'status-paid' : 'status-booking', completed, completed ? 'Билеты и проживание оплачены' : 'Бронирование и оплата',
+              completed ? 'Все бронирования подтверждены' : 'Пройдёт автоматически после согласования')}
+            ${completed ? `<button type="button" class="btn-primary" data-action="help" data-id="documents">Перейти к документам</button>`
+              : `<div class="trip-status-note"><strong>Больше ничего делать не нужно</strong>
+                <p>После согласования мы автоматически оплатим билеты и проживание, если условия бронирования останутся прежними, а стоимость не выйдет за согласованные пределы. Если потребуется изменить выбор, сообщим вам.</p>
+              </div><button type="button" class="btn-secondary" data-action="back-to-edit">Отозвать заявку и внести изменения</button>`}
+          </section>
+          <details class="trip-status-details" ${state.statusDetailsOpen ? 'open' : ''}>
+            <summary>Подробности командировки ${icon('chevron',16)}</summary>
+            <div class="trip-status-details-body">
+              ${renderReviewBookings(false)}
+              ${hasOver ? `<p><strong>Причина превышения лимита</strong><br>${esc(state.reason.trim())}</p>` : ''}
+            </div>
+          </details>
+        </div>`;
       }
+
+      document.addEventListener('toggle', event => {
+        if (event.target.matches?.('.trip-status-details')) state.statusDetailsOpen = event.target.open;
+      }, true);
 
       let timePicker = null;
       const wheelRow = 36;
@@ -1715,7 +1644,7 @@
         previousScreen = screen;
         const workspaceHTML = state.step === 2 ? renderStep2() : state.step === 3 ? renderStep3() : renderReview();
         app.innerHTML = `
-          <div class="workspace-grid ${state.step === 3 ? 'hotels-workspace' : ''}">
+          <div class="workspace-grid ${state.step === 3 ? 'hotels-workspace' : state.step === 5 ? 'review-workspace' : ''}">
             <div class="main-col">
               ${renderStepsBar()}
               <div class="workspace-content ${entering ? 'entering' : ''}">${workspaceHTML}</div>
@@ -1763,13 +1692,18 @@
               state.reasonError = false;
               reasonArea.classList.remove('error');
               reasonArea.setAttribute('aria-invalid', 'false');
-              const err = document.getElementById('reason-err');
-              if (err) err.style.display = 'none';
             }
             const chips = document.querySelectorAll('#reason-chips .overrun-chip');
-            chips.forEach((btn, idx) => {
-              btn.classList.toggle('active', state.reason === REASON_CHIPS[idx]);
+            chips.forEach(btn => {
+              const active = state.reason === btn.dataset.reason;
+              btn.classList.toggle('active', active);
+              btn.setAttribute('aria-pressed', String(active));
             });
+            const submit = document.querySelector('.review-workspace [data-action="submit-trip"]');
+            if (submit) {
+              submit.disabled = !state.reason.trim();
+              submit.textContent = submit.disabled ? 'Укажите причину превышения' : 'Отправить на согласование';
+            }
           });
         }
       }
@@ -1998,15 +1932,12 @@
           state.infoTip = state.infoTip === tip ? null : tip;
           render();
         } else if (action === 'pick-reason') {
-          state.reason = REASON_CHIPS[Number(target.getAttribute('data-idx'))];
+          state.reason = target.dataset.reason;
           state.reasonError = false;
           render();
         } else if (action === 'switch-alt') {
           state.hotelId = 'alt';
           state.reasonError = false;
-          render();
-        } else if (action === 'toggle-autobuy') {
-          state.autoBuy = !state.autoBuy;
           render();
         } else if (action === 'submit-trip') {
           if (!getOutFlight() || !getRetFlight() || !getHotel()) return;
@@ -2019,15 +1950,24 @@
             return;
           }
           state.reasonError = false;
-          state.submittedTime = currentHHMM();
           state.step = 4;
+          state.approvalComplete = false;
+          state.statusDetailsOpen = false;
           render();
+          clearTimeout(approvalTimer);
+          approvalTimer = setTimeout(() => {
+            if (state.step !== 4) return;
+            state.approvalComplete = true;
+            render();
+          }, 14000);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         } else if (action === 'back-to-edit') {
+          clearTimeout(approvalTimer);
           state.step = 5;
           render();
           window.scrollTo({ top: 0, behavior: 'smooth' });
         } else if (action === 'new-trip') {
+          clearTimeout(approvalTimer);
           state = createInitialState();
           render();
           window.scrollTo({ top: 0, behavior: 'smooth' });
